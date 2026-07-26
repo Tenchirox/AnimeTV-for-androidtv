@@ -72,8 +72,8 @@ document.addEventListener('keydown', function (e) {
 
 const login = {
     default_user:null,
-    ppic_base:'https://raw.githubusercontent.com/amarullz/AnimeTV/master/tools/ppic/',
-    wallpaper_base:'https://raw.githubusercontent.com/amarullz/AnimeTV/master/tools/wallpaper/',
+    ppic_base:'https://raw.githubusercontent.com/amarullz/kaicodex/main/shr/tools/ppic/',
+    wallpaper_base:'https://raw.githubusercontent.com/amarullz/kaicodex/main/shr/tools/wallpaper/',
     dynamic_wallpaper: 2,
     h: $('animetv'),
     users: [],

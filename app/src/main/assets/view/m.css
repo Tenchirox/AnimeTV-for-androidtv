@@ -1984,6 +1984,7 @@ c.loader {
   line-height: 1vw;
   overflow: hidden;
   background-color: var(--accent-1);
+  transition: width var(--tim-5s) var(--interpolation) !important;
 }
 
 #vtt_subtitle_preview,
@@ -1995,26 +1996,18 @@ c.loader {
   text-align: center;
   z-index:1;
 }
-#vtt_subtitle_preview *,
-#vtt_subtitle *{
-  text-shadow: -.1vw -.1vw .05vw #000,
-  .1vw -.1vw .05vw #000,
-   -.1vw .1vw .05vw #000,
-   .1vw .1vw .05vw #000,
-  0 0 .1vw #000, 0 0 .2vw #000, .1vw .1vw .4vw #000 !important;
-  -webkit-text-stroke-color: #000 !important;
-}
+
 #vtt_subtitle_preview .vtt_obj,
 #vtt_subtitle .vtt_obj{
   display: inline !important;
 }
 
-#vtt_subtitle .vtt_obj span:not(:last-child):first-child{
+/* #vtt_subtitle .vtt_obj span:not(:last-child):first-child{
   position:fixed;
   top:1vw;
   left:1vw;
   right:1vw;
-}
+} */
 
 .vtt_style_full_opacity .vtt_obj{
   opacity: 1;
@@ -2080,12 +2073,39 @@ c.loader {
 .vtt_style_primary *,
 .vtt_style_blue *,
 .vtt_style_black *{
-  text-shadow: -.1vw -.1vw .05vw #fff,
-  .1vw -.1vw .05vw #fff,
-   -.1vw .1vw .05vw #fff,
-   .1vw .1vw .05vw #fff,
-  0 0 .1vw #000, 0 0 .2vw #000, .1vw .1vw .4vw #000 !important;
-  -webkit-text-stroke-color: #fff !important;
+  --text-shadow-color: #fff;
+}
+
+#vtt_subtitle_preview *,
+#vtt_subtitle *{
+  --text-shadow-color:#000;
+  
+  -webkit-paint-order: stroke fill !important;
+  paint-order: stroke fill !important;
+  -webkit-text-stroke-color: var(--text-shadow-color);
+
+  -webkit-filter: drop-shadow(.1vw .1vw .05vw rgba(10,10,10,.5));
+  -webkit-text-stroke-width: 0;
+}
+.vtt_style_no_outline *{
+  text-shadow: 0 0 .1vw  var(--text-shadow-color);
+  -webkit-text-stroke-width: 0 !important;
+}
+.vtt_style_thin_outline *{
+  -webkit-filter: drop-shadow(.15vw .15vw .05vw rgba(10,10,10,.5)) !important;
+  -webkit-text-stroke-width: .2vw !important;
+}
+.vtt_style_medium_outline *{
+  -webkit-filter: drop-shadow(.15vw .15vw .05vw rgba(10,10,10,.5)) !important;
+  -webkit-text-stroke-width: .4vw !important;
+}
+.vtt_style_thick_outline *{
+  -webkit-filter: drop-shadow(.2vw .2vw .05vw rgba(10,10,10,.5)) !important;
+  -webkit-text-stroke-width: .6vw !important;
+}
+.vtt_style_extra_thick_outline *{
+  -webkit-filter: drop-shadow(.25vw .25vw .05vw rgba(10,10,10,.5)) !important;
+  -webkit-text-stroke-width: .8vw !important;
 }
 
 .vtt_style_background_25 .vtt_obj{
@@ -2139,49 +2159,48 @@ c.loader {
   font-size: calc(var(--fs-30vw) + calc(var(--fs-7vw) / 3));
 }
 .vtt_style_proportional{
-  font-family: sans-serif !important;
+  font-family: "Fira Sans", sans-serif !important;
 }
 .vtt_style_serif{
   font-family: Times, serif;
 }
-.vtt_style_condensed{
-  font-family: robotoc, Arial, Helvetica, sans-serif;
+.vtt_style_itim{
+  font-family: 'Itim', "Fira Sans", sans-serif;
 }
 .vtt_style_outfit{
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Outfit', "Fira Sans", sans-serif;
+  line-height: 1.1;
+}
+.vtt_style_outfit{
+  font-family: 'Outfit', "Fira Sans", sans-serif;
   line-height: 1.1;
 }
 .vtt_style_merriweather{
   font-family: "Merriweather", serif;
 }
-.vtt_style_philosopher{
-  font-family: "Philosopher", sans-serif;
+.vtt_style_cantora_one{
+  font-family: "Cantora One", "Fira Sans", sans-serif;
   line-height: 1.1;
 }
 .vtt_style_salsa{
-  font-family: "Salsa", sans-serif;
+  font-family: "Salsa", "Fira Sans", sans-serif;
+  line-height: 1.1;
+}
+.vtt_style_open_sans{
+  font-family: "Open Sans", "Fira Sans", sans-serif;
   line-height: 1.1;
 }
 .vtt_style_reddit_sans{
-  font-family: "Reddit Sans", sans-serif;
+  font-family: "Reddit Sans", "Fira Sans", sans-serif;
   line-height: 1.1;
 }
-.vtt_style_exo{
-  font-family: "Exo", sans-serif;
+.vtt_style_ruluko{
+  font-family: "Ruluko", "Fira Sans", sans-serif;
   line-height: 1.1;
 }
-.vtt_style_merienda{
-  font-family: "Merienda", cursive, sans-serif;
+.vtt_style_comic_neue{
+  font-family: "Comic Neue", "Fira Sans", sans-serif;
   line-height: 1.2;
-}
-.vtt_style_medium_outline{
-  -webkit-text-stroke-width: 0.05vw !important;
-}
-.vtt_style_thick_outline{
-  -webkit-text-stroke-width: 0.1vw !important;
-}
-.vtt_style_extra_thick_outline{
-  -webkit-text-stroke-width: 0.15vw !important;
 }
 
 #pb_action_streamtype{
@@ -4532,7 +4551,7 @@ c.loader {
   width: calc(100% - 2vw);
 }
 #listorder #listorder_window.inputdialog{
-  width:30vw;
+  width:40vw;
 }
 
 #listorder .listorder_tips{

@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.net.HttpHeaders;
 
-import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import javax.net.ssl.HostnameVerifier;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -679,7 +679,7 @@ import javax.net.ssl.HttpsURLConnection;
             if (connection instanceof HttpsURLConnection) {
                 HttpsURLConnection httpsConn = (HttpsURLConnection) connection;
                 httpsConn.setSSLSocketFactory(SSLCertificateSocketFactory.getInsecure(0, null));
-                httpsConn.setHostnameVerifier(new AllowAllHostnameVerifier());
+                httpsConn.setHostnameVerifier((hostname, session) -> true);
             }
         }
         connection.setConnectTimeout(connectTimeoutMillis);

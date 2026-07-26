@@ -1,14 +1,15 @@
 package com.amarullz.androidtv.animetvjmto;
 
-import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-public class ChannelStartServiceReceiver  extends BroadcastReceiver {
-    @SuppressLint("UnsafeProtectedBroadcastReceiver")
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        AnimeProvider.scheduleJob(context);
-    }
+/**
+ * Replanifie le job de mise a jour des chaines TV au demarrage de l'appareil.
+ */
+public class ChannelStartServiceReceiver extends BroadcastReceiver {
+  @Override
+  public void onReceive(Context context, Intent intent) {
+    AnimeProvider.scheduleJob(context);
+  }
 }
