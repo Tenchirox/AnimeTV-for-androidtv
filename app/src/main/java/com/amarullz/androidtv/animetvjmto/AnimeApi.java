@@ -59,9 +59,9 @@ import okhttp3.dnsoverhttps.DnsOverHttps;
 public class AnimeApi extends WebViewClient {
   private static final String _TAG = "ATVLOG-API";
 
-  /* URL du fichier de configuration/mise a jour distant */
-  private static final String SERVER_CONFIG_URL =
-      "https://raw.githubusercontent.com/amarullz/kaicodex/main/shr/server.json";
+  /* URL de la derniere release GitHub (mise a jour de l'application) */
+  private static final String GITHUB_RELEASE_URL =
+      "https://api.github.com/repos/Tenchirox/AnimeTV-for-androidtv/releases/latest";
 
   /* Moteur HTTP statique */
   public static DnsOverHttps dohClient = null;
@@ -418,8 +418,8 @@ public class AnimeApi extends WebViewClient {
   }
 
   /**
-   * Verifie la configuration distante et la disponibilite d'une nouvelle
-   * version de l'application.
+   * Verifie sur GitHub si une nouvelle release de l'application est
+   * disponible (compare le tag de la derniere release a la version courante).
    *
    * @param showMessage force l'affichage du dialogue meme si l'utilisateur
    *                    a choisi "Don't Remind Me"
@@ -438,16 +438,19 @@ public class AnimeApi extends WebViewClient {
       }
 
       try {
-        /* Recupere la configuration distante */
-        Http http = new Http(SERVER_CONFIG_URL + "?" + System.currentTimeMillis());
+        /* Recupere la derniere release GitHub */
+        Http http = new Http(GITHUB_RELEASE_URL);
+        http.addHeader("Accept", "application/vnd.github+json");
         http.execute();
-        String serverjson = http.body.toString();
-        JSONObject j = new JSONObject(serverjson);
-        String update = j.getString("update");
-        if (!Conf.SERVER_VER.equals(update)) {
-          Log.d(_TAG, "SERVER-UPDATED: " + serverjson);
+        JSONObject release = new JSONObject(http.body.toString());
+        String tagName = release.optString("tag_name", "");
+
+        /* Met a jour la "version serveur" affichee dans l'UI (dnsver) */
+        if (!tagName.isEmpty() && !Conf.SERVER_VER.equals(tagName)) {
+          Log.d(_TAG, "SERVER-UPDATED: " + tagName);
           SharedPreferences.Editor ed = pref.edit();
-          ed.putString("server-json", serverjson);
+          ed.putString("server-json",
+              new JSONObject().put("update", tagName).toString());
           ed.apply();
           initPref();
         } else {
@@ -455,15 +458,32 @@ public class AnimeApi extends WebViewClient {
         }
 
         /* Nouvelle version de l'application ? */
-        int appnum = j.getInt("appnum");
-        if (appnum > BuildConfig.VERSION_CODE) {
-          Log.d(_TAG, "NEW APK VERSION AVAILABLE");
-          String appurl = j.getString("appurl");
-          String appver = j.getString("appver");
-          String appnote = j.getString("appnote");
-          String appsize = j.getString("appsize");
+        if (isNewerVersion(tagName, BuildConfig.VERSION_NAME)) {
+          /* Cherche l'asset APK de la release */
+          String apkUrl = null;
+          long apkSize = 0;
+          org.json.JSONArray assets = release.optJSONArray("assets");
+          if (assets != null) {
+            for (int i = 0; i < assets.length(); i++) {
+              JSONObject asset = assets.getJSONObject(i);
+              if (asset.getString("name").endsWith(".apk")) {
+                apkUrl = asset.getString("browser_download_url");
+                apkSize = asset.optLong("size", 0);
+                break;
+              }
+            }
+          }
+          if (apkUrl == null) {
+            Log.d(_TAG, "NO APK ASSET IN RELEASE " + tagName);
+            return;
+          }
+          Log.d(_TAG, "NEW APK VERSION AVAILABLE: " + tagName);
+          final String appurl = apkUrl;
+          final String appver = tagName;
+          final String appnote = release.optString("body", "");
+          final String appsize = formatSize(apkSize);
           Log.d(_TAG, "showUpdateDialog = " + appver + " / " + appsize + " / " +
-              appurl + " / " + appnote);
+              appurl);
           boolean updateState = pref.getBoolean("update-disable", false);
           if (!updateState || showMessage) {
             activity.runOnUiThread(() -> showUpdateDialog(appurl, appver, appnote, appsize));
@@ -479,9 +499,60 @@ public class AnimeApi extends WebViewClient {
           }
           Log.d(_TAG, "APP UP TO DATE");
         }
-      } catch (Exception ignored) {
+      } catch (Exception e) {
+        Log.d(_TAG, "UPDATE CHECK ERR: " + e);
       }
     });
+  }
+
+  /**
+   * Compare deux versions ("v6.6.8" vs "6.6.7-Nightly") segment par segment.
+   *
+   * @return true si la version {@code latestTag} est strictement superieure
+   *         a {@code currentName}
+   */
+  public static boolean isNewerVersion(String latestTag, String currentName) {
+    try {
+      int[] latest = versionParts(latestTag);
+      int[] current = versionParts(currentName);
+      int max = Math.max(latest.length, current.length);
+      for (int i = 0; i < max; i++) {
+        int l = i < latest.length ? latest[i] : 0;
+        int c = i < current.length ? current[i] : 0;
+        if (l != c) {
+          return l > c;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return false;
+  }
+
+  /** Decoupe une version en segments numeriques ("v6.6.7-Nightly" -> 6,6,7). */
+  private static int[] versionParts(String version) {
+    version = version.trim();
+    if (version.startsWith("v") || version.startsWith("V")) {
+      version = version.substring(1);
+    }
+    String[] segments = version.split("\\.");
+    int[] parts = new int[segments.length];
+    for (int i = 0; i < segments.length; i++) {
+      String segment = segments[i];
+      int end = 0;
+      while (end < segment.length() && Character.isDigit(segment.charAt(end))) {
+        end++;
+      }
+      parts[i] = end > 0 ? Integer.parseInt(segment.substring(0, end)) : 0;
+    }
+    return parts;
+  }
+
+  /** Formate une taille en octets ("12.4 MB"). */
+  private static String formatSize(long bytes) {
+    if (bytes <= 0) {
+      return "? MB";
+    }
+    return String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576.0);
   }
 
   @Override
