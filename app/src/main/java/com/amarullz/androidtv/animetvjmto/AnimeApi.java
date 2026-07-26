@@ -8,7 +8,6 @@ import android.content.SharedPreferences;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.net.http.SslError;
-import android.os.AsyncTask;
 import android.util.Log;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
@@ -63,6 +62,10 @@ public class AnimeApi extends WebViewClient {
   private static final String GITHUB_RELEASE_URL =
       "https://api.github.com/repos/Tenchirox/AnimeTV-for-androidtv/releases/latest";
 
+  /* URL de la configuration distante des domaines sources (sur le fork) */
+  private static final String DOMAIN_CONFIG_URL =
+      "https://raw.githubusercontent.com/Tenchirox/AnimeTV-for-androidtv/master/server.json";
+
   /* Moteur HTTP statique */
   public static DnsOverHttps dohClient = null;
   public static OkHttpClient bootstrapClient = null;
@@ -83,7 +86,10 @@ public class AnimeApi extends WebViewClient {
     cacheDir = mainActivity.getCacheDir().getAbsolutePath();
     Log.d(_TAG, "Cache Dir = " + cacheDir);
     initHttpEngine(mainActivity);
-    AsyncTask.execute(() -> updateServerVar(false));
+    AppExecutors.execute(() -> {
+      updateServerVar(false);
+      fetchDomainConfig();
+    });
     pref = mainActivity.getSharedPreferences("SERVER", Context.MODE_PRIVATE);
     initPref();
     badRequest = new WebResourceResponse("text/plain", null, 400,
@@ -325,9 +331,73 @@ public class AnimeApi extends WebViewClient {
     }
     Conf.SOURCE_DOMAIN = pref.getInt("source-domain", Conf.SOURCE_DOMAIN);
     Conf.CACHE_SIZE_MB = pref.getInt("cache-size", Conf.CACHE_SIZE_MB);
+    /* Applique la config domaines distante memorisee (si presente) */
+    applyDomainConfig(pref.getString("domain-json", ""));
     Conf.updateSource(Conf.SOURCE_DOMAIN);
     Log.d(_TAG, "DOMAIN = " + Conf.getDomain() + " / STREAM = " + Conf.STREAM_DOMAIN +
         " / UPDATE = " + Conf.SERVER_VER + " / Source-ID: " + Conf.SOURCE_DOMAIN);
+  }
+
+  /* ------------------------------------------------------------------
+   * Configuration distante des domaines sources
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Recupere la liste des domaines sources depuis le fichier server.json
+   * du depot (permet de changer un domaine mort sans publier de maj).
+   */
+  public void fetchDomainConfig() {
+    try {
+      Http http = new Http(DOMAIN_CONFIG_URL + "?" + System.currentTimeMillis());
+      http.execute();
+      String json = http.body.toString();
+      String old = pref.getString("domain-json", "");
+      if (!json.equals(old) && applyDomainConfig(json)) {
+        SharedPreferences.Editor ed = pref.edit();
+        ed.putString("domain-json", json);
+        ed.apply();
+        Log.d(_TAG, "DOMAIN-CONFIG UPDATED: " + json);
+      } else {
+        Log.d(_TAG, "DOMAIN-CONFIG UP TO DATE");
+      }
+    } catch (Exception e) {
+      Log.d(_TAG, "DOMAIN-CONFIG ERR: " + e);
+    }
+  }
+
+  /**
+   * Applique une config domaines (JSON {"domains":[h1..h8]}) apres
+   * validation stricte des hotes.
+   *
+   * @return true si la config etait valide et a ete appliquee
+   */
+  public boolean applyDomainConfig(String json) {
+    try {
+      if (json == null || json.isEmpty()) {
+        return false;
+      }
+      org.json.JSONArray domains = new JSONObject(json).getJSONArray("domains");
+      if (domains.length() != Conf.SOURCE_DOMAINS.length - 1) {
+        return false;
+      }
+      String[] newDomains = new String[Conf.SOURCE_DOMAINS.length];
+      newDomains[0] = Conf.SOURCE_DOMAINS[0];
+      for (int i = 0; i < domains.length(); i++) {
+        String host = domains.getString(i).toLowerCase().trim();
+        if (!host.matches("^[a-z0-9][a-z0-9.-]*\\.[a-z]{2,}$")) {
+          return false;
+        }
+        newDomains[i + 1] = host;
+      }
+      for (int i = 1; i < newDomains.length; i++) {
+        Conf.SOURCE_DOMAINS[i] = newDomains[i];
+      }
+      Conf.updateSource(Conf.SOURCE_DOMAIN);
+      Log.d(_TAG, "DOMAIN-CONFIG APPLIED: " + Conf.getDomain());
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -364,7 +434,7 @@ public class AnimeApi extends WebViewClient {
       return false;
     }
     updateIsInProgress = true;
-    AsyncTask.execute(new Runnable() {
+    AppExecutors.execute(new Runnable() {
       @Override
       public void run() {
         Log.d(_TAG, "DOWNLOADING APK = " + url);
@@ -425,7 +495,7 @@ public class AnimeApi extends WebViewClient {
    *                    a choisi "Don't Remind Me"
    */
   public void updateServerVar(boolean showMessage) {
-    AsyncTask.execute(() -> {
+    AppExecutors.execute(() -> {
       /* Supprime l'eventuel APK temporaire d'une precedente maj */
       try {
         File fp = new File(apkTempFile());
@@ -481,7 +551,7 @@ public class AnimeApi extends WebViewClient {
           final String appurl = apkUrl;
           final String appver = tagName;
           final String appnote = release.optString("body", "");
-          final String appsize = formatSize(apkSize);
+          final String appsize = VersionUtils.formatSize(apkSize);
           Log.d(_TAG, "showUpdateDialog = " + appver + " / " + appsize + " / " +
               appurl);
           boolean updateState = pref.getBoolean("update-disable", false);
@@ -512,47 +582,7 @@ public class AnimeApi extends WebViewClient {
    *         a {@code currentName}
    */
   public static boolean isNewerVersion(String latestTag, String currentName) {
-    try {
-      int[] latest = versionParts(latestTag);
-      int[] current = versionParts(currentName);
-      int max = Math.max(latest.length, current.length);
-      for (int i = 0; i < max; i++) {
-        int l = i < latest.length ? latest[i] : 0;
-        int c = i < current.length ? current[i] : 0;
-        if (l != c) {
-          return l > c;
-        }
-      }
-    } catch (Exception ignored) {
-    }
-    return false;
-  }
-
-  /** Decoupe une version en segments numeriques ("v6.6.7-Nightly" -> 6,6,7). */
-  private static int[] versionParts(String version) {
-    version = version.trim();
-    if (version.startsWith("v") || version.startsWith("V")) {
-      version = version.substring(1);
-    }
-    String[] segments = version.split("\\.");
-    int[] parts = new int[segments.length];
-    for (int i = 0; i < segments.length; i++) {
-      String segment = segments[i];
-      int end = 0;
-      while (end < segment.length() && Character.isDigit(segment.charAt(end))) {
-        end++;
-      }
-      parts[i] = end > 0 ? Integer.parseInt(segment.substring(0, end)) : 0;
-    }
-    return parts;
-  }
-
-  /** Formate une taille en octets ("12.4 MB"). */
-  private static String formatSize(long bytes) {
-    if (bytes <= 0) {
-      return "? MB";
-    }
-    return String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576.0);
+    return VersionUtils.isNewerVersion(latestTag, currentName);
   }
 
   @Override

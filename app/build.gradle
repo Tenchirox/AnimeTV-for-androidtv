@@ -50,6 +50,8 @@ android {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.leanback:leanback:1.0.0'
     implementation 'androidx.media:media:1.7.0'

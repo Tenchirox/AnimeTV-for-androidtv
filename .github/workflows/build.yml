@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -27,10 +29,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build release APK
+      - name: Run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew testDebugUnitTest
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -38,19 +43,56 @@ jobs:
           name: animetv-apk
           path: app/build/outputs/apk/release/*.apk
 
-      - name: Read version name
+      - name: Read version info
         id: ver
         run: |
           VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
+          VCODE=$(grep -oP 'versionCode \K[0-9]+' app/build.gradle)
           echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "versioncode=$VCODE" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          TAG="v${{ steps.ver.outputs.version }}"
+          TAG="v$VERSION"
           gh release delete "$TAG" -y --cleanup-tag || true
           gh release create "$TAG" app/build/outputs/apk/release/*.apk \
-            --title "AnimeTV ${{ steps.ver.outputs.version }}" \
-            --notes "Build automatique depuis master (commit ${{ github.sha }})." \
+            --title "AnimeTV $VERSION" \
+            --notes "$COMMIT_MSG" \
             --latest
+
+      - name: Publish last-nightly metadata asset
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          VERSIONCODE: ${{ steps.ver.outputs.versioncode }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          REPO: ${{ github.repository }}
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          FNAME=$(basename "$APK")
+          SIZE=$(python3 -c "import os;print(f\"{os.path.getsize('$APK')/1048576:.1f}MB\")")
+          TAG="v$VERSION"
+          URL="https://github.com/$REPO/releases/download/$TAG/$FNAME"
+          TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          FNAME="$FNAME" SIZE="$SIZE" TAG="$TAG" URL="$URL" TIME="$TIME" \
+          VNUM="$VERSIONCODE" MSG="$COMMIT_MSG" python3 - <<'EOF'
+          import json, os
+          entry = [{
+              "vnum": int(os.environ["VNUM"]),
+              "name": os.environ["TAG"],
+              "time": os.environ["TIME"],
+              "filename": os.environ["FNAME"],
+              "filesize": os.environ["SIZE"],
+              "content": os.environ["MSG"],
+              "url": os.environ["URL"]
+          }]
+          with open("last-nightly", "w") as f:
+              json.dump(entry, f, indent=2)
+          EOF
+          gh release upload "$TAG" last-nightly --clobber

@@ -7,7 +7,6 @@ import android.content.res.Configuration;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -32,6 +31,12 @@ import androidx.media.session.MediaButtonReceiver;
 public class MainActivity extends FragmentActivity {
   private static final String _TAG = "ATVLOG";
   private static final String _TAG_MEDIA = "ATVLOG_MEDIA";
+
+  /* Keycodes OEM (telecommandes de certains boitiers TV) sans nom standard */
+  private static final int KEYCODE_OEM_NEXT_1 = 272;
+  private static final int KEYCODE_OEM_PREV_1 = 273;
+  private static final int KEYCODE_OEM_NEXT_2 = 274;
+  private static final int KEYCODE_OEM_PREV_2 = 275;
 
   /* Arguments passes par intent (ouverture d'un anime depuis l'exterieur) */
   public static String ARG_URL;
@@ -90,9 +95,9 @@ public class MainActivity extends FragmentActivity {
       webCode = 93;
     } else if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
       webCode = 402;
-    } else if (keyCode == 131) {
+    } else if (keyCode == KeyEvent.KEYCODE_F1) {
       webCode = 402;
-    } else if (keyCode == 135) {
+    } else if (keyCode == KeyEvent.KEYCODE_F5) {
       /* PROG_BLUE / F5 : recharge l'accueil */
       if (send) {
         WebView webView = aView.webView;
@@ -100,9 +105,9 @@ public class MainActivity extends FragmentActivity {
         webView.loadUrl("https://" + Conf.getDomain() + "/__view/main.html");
       }
       webCode = 0;
-    } else if (keyCode == 140 || keyCode == 183) {
+    } else if (keyCode == KeyEvent.KEYCODE_F10 || keyCode == KeyEvent.KEYCODE_PROG_RED) {
       webCode = 93;
-    } else if (keyCode == 186) {
+    } else if (keyCode == KeyEvent.KEYCODE_PROG_BLUE) {
       /* PROG_BLUE : recharge l'accueil */
       if (send) {
         WebView webView = aView.webView;
@@ -149,20 +154,20 @@ public class MainActivity extends FragmentActivity {
             case KeyEvent.KEYCODE_INFO:
               webCode = 93;
               break;
-            case 166: /* CHANNEL_UP */
+            case KeyEvent.KEYCODE_CHANNEL_UP:
               webCode = 33;
               break;
-            case 167: /* CHANNEL_DOWN */
+            case KeyEvent.KEYCODE_CHANNEL_DOWN:
               webCode = 34;
               break;
             default:
               switch (keyCode) {
-                case 272:
-                case 274:
+                case KEYCODE_OEM_NEXT_1:
+                case KEYCODE_OEM_NEXT_2:
                   webCode = 403;
                   break;
-                case 273:
-                case 275:
+                case KEYCODE_OEM_PREV_1:
+                case KEYCODE_OEM_PREV_2:
                   webCode = 401;
                   break;
                 default:
@@ -451,8 +456,21 @@ public class MainActivity extends FragmentActivity {
 
   @Override
   protected void onStop() {
-    AsyncTask.execute(() -> aView.updatePlayNext());
+    AppExecutors.execute(() -> aView.updatePlayNext());
     super.onStop();
+  }
+
+  @Override
+  protected void onDestroy() {
+    /* Libere le lecteur, la WebView et la reconnaissance vocale */
+    if (aView != null) {
+      aView.release();
+    }
+    if (mSession != null) {
+      mSession.release();
+      mSession = null;
+    }
+    super.onDestroy();
   }
 
   @Override

@@ -16,7 +16,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.media.tv.TvContract;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.util.Log;
 
@@ -122,7 +121,7 @@ public class AnimeProvider {
     AnimeProvider recent = new AnimeProvider(context, "Recent", "AnimeTV");
     if (recent.channelId >= 1) {
       try {
-        AsyncTask.execute(() -> recent.requestRecent(new ChannelCallback(recent)));
+        AppExecutors.execute(() -> recent.requestRecent(new ChannelCallback(recent)));
       } catch (Exception ignored) {
       }
     }
@@ -132,7 +131,7 @@ public class AnimeProvider {
         new AnimeProvider(context, "Trending", "AnimeTV_Trending");
     if (trending.channelId >= 1) {
       try {
-        AsyncTask.execute(() ->
+        AppExecutors.execute(() ->
             trending.requestQuery(QUERY_TRENDING, new ChannelCallback(trending)));
       } catch (Exception ignored) {
       }
@@ -142,7 +141,7 @@ public class AnimeProvider {
     AnimeProvider popular = new AnimeProvider(context, "Popular", "AnimeTV_Popular");
     if (popular.channelId >= 1) {
       try {
-        AsyncTask.execute(() ->
+        AppExecutors.execute(() ->
             popular.requestQuery(QUERY_POPULAR, new ChannelCallback(popular)));
       } catch (Exception ignored) {
       }

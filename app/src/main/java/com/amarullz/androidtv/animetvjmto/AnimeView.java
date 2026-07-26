@@ -9,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.media.AudioManager;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -127,8 +126,9 @@ public class AnimeView extends WebViewClient {
   public boolean webViewReady = false;
 
   /* Cache de la derniere reponse /getSources (megacloud/rapid-cloud),
-   * servi au JS via l'endpoint local /__cache_subtitle (sous-titres). */
-  public String cachedSourcesJson = "";
+   * servi au JS via l'endpoint local /__cache_subtitle (sous-titres).
+   * volatile : ecrit depuis le thread WebView, lu depuis d'autres threads. */
+  public volatile String cachedSourcesJson = "";
 
   public final AudioManager audioManager;
   public int sysBrightness;
@@ -746,7 +746,7 @@ public class AnimeView extends WebViewClient {
     ProgressDialog progressDialog = new ProgressDialog(activity);
     progressDialog.setMessage("Login to MyAnimeList..");
     progressDialog.show();
-    AsyncTask.execute(() -> {
+    AppExecutors.execute(() -> {
       try {
         AnimeApi.Http http = new AnimeApi.Http(
             "https://api.myanimelist.net/v2/auth/token");
@@ -866,7 +866,7 @@ public class AnimeView extends WebViewClient {
   /** Signale au JS que la page player embarquee a ete injectee. */
   public void sendVidpageLoaded() {
     Log.d(_TAG, "sendVidpageLoaded --> 1");
-    AsyncTask.execute(() ->
+    AppExecutors.execute(() ->
         activity.runOnUiThread(() ->
             webView.evaluateJavascript("__VIDPAGELOADCB(1);", null)));
   }
@@ -890,7 +890,7 @@ public class AnimeView extends WebViewClient {
     }
     if (webView != null) {
       updateInsets();
-      AsyncTask.execute(() -> activity.runOnUiThread(() ->
+      AppExecutors.execute(() -> activity.runOnUiThread(() ->
           webView.evaluateJavascript(
               "try{__INSETCHANGE(_JSAPI.getSysHeight(false)," +
                   "_JSAPI.getSysHeight(true));}catch(e){}", null)));
@@ -902,7 +902,7 @@ public class AnimeView extends WebViewClient {
     videoSizeWidth = width;
     videoSizeHeight = height;
     Log.d(_TAG, "VIDEO SIZE " + width + "x" + height);
-    AsyncTask.execute(() -> activity.runOnUiThread(() ->
+    AppExecutors.execute(() -> activity.runOnUiThread(() ->
         webView.evaluateJavascript(
             "try{__VIDRESCB(" + width + "," + height + ");}catch(e){}", null)));
   }
@@ -1124,6 +1124,9 @@ public class AnimeView extends WebViewClient {
     Uri uri = request.getUrl();
     String url = uri.toString();
     String host = uri.getHost();
+    if (host == null) {
+      return aApi.badRequest;
+    }
     String accept = request.getRequestHeaders().get("Accept");
     String path = uri.getPath();
     if (path == null) {
@@ -1500,7 +1503,7 @@ public class AnimeView extends WebViewClient {
   /** Envoie l'URL du flux au JS (__M3U8CB). */
   private void sendM3U8Callback(String json) {
     Log.d(_TAG, "sendM3U8Req = " + json);
-    AsyncTask.execute(() ->
+    AppExecutors.execute(() ->
         activity.runOnUiThread(() ->
             webView.evaluateJavascript("__M3U8CB(" + json + ");", null)));
   }
@@ -1909,7 +1912,7 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public void playNextClear() {
       pnUpdated = false;
-      AsyncTask.execute(() -> AnimeProvider.clearPlayNext(activity));
+      AppExecutors.execute(() -> AnimeProvider.clearPlayNext(activity));
     }
 
     @JavascriptInterface
@@ -1935,7 +1938,7 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void playNextRegister() {
-      AsyncTask.execute(() -> updatePlayNext());
+      AppExecutors.execute(() -> updatePlayNext());
     }
 
     /* ---------------- Recherche vocale ---------------- */
@@ -2132,5 +2135,28 @@ public class AnimeView extends WebViewClient {
   public void updateArgs() {
     activity.runOnUiThread(() ->
         webView.evaluateJavascript("__ARGUPDATE();", null));
+  }
+
+  /** Libere le lecteur, la WebView et la reconnaissance vocale. */
+  public void release() {
+    try {
+      if (voiceRecognizer != null) {
+        voiceRecognizer.destroy();
+        voiceRecognizer = null;
+      }
+    } catch (Exception ignored) {
+    }
+    try {
+      if (videoPlayer != null) {
+        videoPlayer.release();
+        videoPlayer = null;
+      }
+    } catch (Exception ignored) {
+    }
+    try {
+      webView.removeJavascriptInterface("_JSAPI");
+      webView.destroy();
+    } catch (Exception ignored) {
+    }
   }
 }

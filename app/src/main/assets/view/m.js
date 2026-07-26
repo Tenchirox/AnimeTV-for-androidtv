@@ -5564,7 +5564,7 @@ const _API={
         pb.cfg_setactive(home.settings.tools._s_checknightly,true);
       }
     }
-    var urlcheck = 'https://animetv.amarullz.com/last-nightly'+(_ISELECTRON?'-pc':'');
+    var urlcheck = 'https://github.com/Tenchirox/AnimeTV-for-androidtv/releases/latest/download/last-nightly'+(_ISELECTRON?'-pc':'');
     $ap(urlcheck,function(r){
       if (r.ok){
         try{
