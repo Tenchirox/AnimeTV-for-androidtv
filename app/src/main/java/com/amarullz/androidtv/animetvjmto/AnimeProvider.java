@@ -118,7 +118,7 @@ public class AnimeProvider {
     }
 
     /* Chaine "Recent" : episodes en cours de diffusion */
-    AnimeProvider recent = new AnimeProvider(context, "Recent", "AnimeTV");
+    AnimeProvider recent = new AnimeProvider(context, "Recent (Beta)", "org.tenchirock.animetv");
     if (recent.channelId >= 1) {
       try {
         AppExecutors.execute(() -> recent.requestRecent(new ChannelCallback(recent)));
@@ -128,7 +128,7 @@ public class AnimeProvider {
 
     /* Chaine "Trending" */
     AnimeProvider trending =
-        new AnimeProvider(context, "Trending", "AnimeTV_Trending");
+        new AnimeProvider(context, "Trending (Beta)", "org.tenchirock.animetv.trending");
     if (trending.channelId >= 1) {
       try {
         AppExecutors.execute(() ->
@@ -138,7 +138,7 @@ public class AnimeProvider {
     }
 
     /* Chaine "Popular" */
-    AnimeProvider popular = new AnimeProvider(context, "Popular", "AnimeTV_Popular");
+    AnimeProvider popular = new AnimeProvider(context, "Popular (Beta)", "org.tenchirock.animetv.popular");
     if (popular.channelId >= 1) {
       try {
         AppExecutors.execute(() ->
