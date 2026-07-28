@@ -330,6 +330,12 @@ public class AnimeApi extends WebViewClient {
       }
     }
     Conf.SOURCE_DOMAIN = pref.getInt("source-domain", Conf.SOURCE_DOMAIN);
+    /* Migre les sources mortes vers la source par defaut */
+    if (Conf.isDeadSource(Conf.SOURCE_DOMAIN)) {
+      Log.d(_TAG, "Dead source " + Conf.SOURCE_DOMAIN + " -> default " +
+          Conf.SOURCE_DOMAIN_DEFAULT);
+      Conf.SOURCE_DOMAIN = Conf.SOURCE_DOMAIN_DEFAULT;
+    }
     Conf.CACHE_SIZE_MB = pref.getInt("cache-size", Conf.CACHE_SIZE_MB);
     /* Applique la config domaines distante memorisee (si presente) */
     applyDomainConfig(pref.getString("domain-json", ""));

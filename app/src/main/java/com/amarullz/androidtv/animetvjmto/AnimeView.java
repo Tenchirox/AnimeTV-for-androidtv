@@ -1685,6 +1685,10 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void setSd(int source) {
+      /* Les sources mortes sont substituees par la source par defaut */
+      if (Conf.isDeadSource(source)) {
+        source = Conf.SOURCE_DOMAIN_DEFAULT;
+      }
       if (source >= 1 && source < Conf.SOURCE_DOMAINS.length) {
         android.content.SharedPreferences.Editor editor = aApi.pref.edit();
         editor.putInt("source-domain", source);

@@ -15,15 +15,19 @@ public class Conf {
    * Liste des domaines "sources" de catalogue anime.
    * L'index 0 est le domaine actif courant, les index 1..8 les sources
    * selectionnables dans les reglages de l'application.
+   *
+   * <p>IMPORTANT : ne jamais retirer d'entree (la logique SD1..SD8 depend
+   * des index). Les sources mortes sont marquees "rip" et masquees dans
+   * l'UI (voir m.js __SOURCE_ACTIVE).</p>
    */
   public static volatile String[] SOURCE_DOMAINS = {
-      "animekai.to",   /* 0 : domaine courant (recopie de la source choisie) */
-      "animekai.to",   /* 1 : AnimeKai (defaut) */
-      "anix.to",       /* 2 : Anix */
+      "kaa.lt",        /* 0 : domaine courant (recopie de la source choisie) */
+      "animekai.to",   /* 1 : AnimeKai (rip) */
+      "anix.to",       /* 2 : Anix (rip) */
       "aniwatchtv.to", /* 3 : AniWatch (megacloud) */
       "aniwatchtv.to", /* 4 : AniWatch (rapid-cloud) */
-      "animeflix.live",/* 5 : Animeflix */
-      "kaa.lt",        /* 6 : KAA */
+      "animeflix.live",/* 5 : Animeflix (rip) */
+      "kaa.lt",        /* 6 : KAA / KickAss */
       "api.gojo.wtf",  /* 7 : Gojo */
       "www.miruro.tv"  /* 8 : Miruro */
   };
@@ -31,8 +35,16 @@ public class Conf {
   /* API utilisee par la source 5 (animeflix) */
   public static volatile String SOURCE_DOMAIN5_API = "api.animeflix.dev";
 
+  /* Source utilisee par defaut (les sources 1, 2 et 5 sont mortes) */
+  public static final int SOURCE_DOMAIN_DEFAULT = 6;
+
   /* Source actuellement selectionnee (1..8) */
-  public static volatile int SOURCE_DOMAIN = 1;
+  public static volatile int SOURCE_DOMAIN = SOURCE_DOMAIN_DEFAULT;
+
+  /** @return true si la source est morte (masquee dans l'UI). */
+  public static boolean isDeadSource(int source) {
+    return source == 1 || source == 2 || source == 5;
+  }
 
   /* Domaine de remplacement force (reglage utilisateur), vide = desactive */
   public static volatile String SOURCE_DOMAIN_USED = "";

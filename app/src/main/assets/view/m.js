@@ -54,6 +54,11 @@ const __SOURCE_DOMAINS=[
   ['www.miruro.tv']
 ];
 
+/* Sources actives : AnimeKAI(1), Anix(2) et Animeflix(5) sont mortes
+   et masquees de la liste de selection (les index sont preserves) */
+const __SOURCE_ACTIVE=[3,4,6,7,8];
+const __SOURCE_ACTIVE_NAME=__SOURCE_ACTIVE.map(function(s){return __SOURCE_NAME[s-1];});
+
 /* video res change */
 var __VIDRESW=0;
 var __VIDRESH=0;
@@ -154,13 +159,13 @@ function SD_CFGNAME(n){
 function SD_CHANGE(){
   listOrder.showList(
     "Source Server",
-    __SOURCE_NAME,
-    __SD-1,
+    __SOURCE_ACTIVE_NAME,
+    __SOURCE_ACTIVE.indexOf(__SD),
     function(nxe){
       if (nxe==null){
         return;
       }
-      SD_SETTINGS(toInt(nxe)+1);
+      SD_SETTINGS(__SOURCE_ACTIVE[toInt(nxe)]);
     },
     false,
     '',
@@ -15755,30 +15760,19 @@ const home={
     profile.onclick=home.sidebar.itemclick;
     home.sidebar.items=[profile];
 
-    /* Init Sources */
+    /* Init Sources (sources actives uniquement, les mortes sont masquees) */
     var sources=$n('div','sidebar_source sidebar_group',{title:'Sources'},home.sidebar.contents,'');
-    for (var i=0;i<__SOURCE_NAME.length;i++){
+    for (var ai=0;ai<__SOURCE_ACTIVE.length;ai++){
+      var i=__SOURCE_ACTIVE[ai]-1;
       var active=(__SD==i+1);
       var seldomain=_JSAPI.storeGet(SD_CFGNAME(i+1),"");
       if (!seldomain){
         seldomain=__SOURCE_DOMAINS[i][0];
       }
-
-      /* SKIP THIS SOURCES */
-      if ((i==4)||(i==1)||(i==2)||(i==3)||(i==6) ||(i==7)) {
-        /* Parental will not work on source 5 */
-        continue;
-      }
       if (i==7){
         /* miruro */
         seldomain=miruro.providers_name[miruro.getProvider()];
       }
-      // if (!ratingSystem.allSource){
-      //   if (i==4){
-      //     /* Parental will not work on source 5 */
-      //     continue;
-      //   }
-      // }
       var hl=$n('div',active?'sidebar_item checked':'sidebar_item',null,sources,'');
       hl.onclick=home.sidebar.itemclick;
       hl._action='source';
