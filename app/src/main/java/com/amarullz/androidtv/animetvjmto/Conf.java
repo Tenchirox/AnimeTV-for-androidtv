@@ -46,6 +46,20 @@ public class Conf {
     return source == 1 || source == 2 || source == 5;
   }
 
+  /**
+   * Normalise une source : morte -> defaut, 4 -> 3 (Aniwatch etait
+   * affiche en double alors que 3 et 4 sont traites a l'identique).
+   */
+  public static int normalizeSource(int source) {
+    if (isDeadSource(source)) {
+      return SOURCE_DOMAIN_DEFAULT;
+    }
+    if (source == 4) {
+      return 3;
+    }
+    return source;
+  }
+
   /* Domaine de remplacement force (reglage utilisateur), vide = desactive */
   public static volatile String SOURCE_DOMAIN_USED = "";
 

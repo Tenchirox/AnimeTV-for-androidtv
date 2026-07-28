@@ -21,6 +21,9 @@ originale** (label "AnimeTV Beta").
 
 - **Mise à jour in-app via GitHub Releases** de ce fork (avec vérification
   d'intégrité **SHA-256** de l'APK téléchargé)
+- **Fallback sous-titres OpenSubtitles** : quand la source sélectionnée ne
+  fournit aucun sous-titre, l'app peut les récupérer sur
+  [OpenSubtitles.com](https://www.opensubtitles.com) — voir ci-dessous
 - Sources mortes retirées de l'UI (AnimeKAI, Anix, Animeflix) ; sources
   actives : **Aniwatch, KickAss, Gojo, Miruro**
 - Config distante des domaines sources via [`server.json`](server.json)
@@ -42,6 +45,17 @@ originale** (label "AnimeTV Beta").
 Requis : JDK 17 + Android SDK (compileSdk 34). `minSdk 22`, `targetSdk 34`.
 La CI (`.github/workflows/build.yml`) compile, teste et publie la release à
 chaque push sur `master`.
+
+## Sous-titres externes (OpenSubtitles)
+
+Si la source ne fournit pas de sous-titres pour un épisode, l'app peut les
+chercher sur OpenSubtitles (langue configurée, sinon FR puis EN) :
+
+1. Créer un compte gratuit sur [opensubtitles.com](https://www.opensubtitles.com)
+2. Générer une clé API : **Settings → API** (consommateur, gratuit)
+3. Dans l'app : **Settings → OpenSubtitles API Key** → coller la clé
+
+Laisser la clé vide désactive le fallback (comportement d'origine).
 
 ## Fonctionnement des mises à jour
 

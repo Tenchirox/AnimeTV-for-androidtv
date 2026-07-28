@@ -56,7 +56,7 @@ const __SOURCE_DOMAINS=[
 
 /* Sources actives : AnimeKAI(1), Anix(2) et Animeflix(5) sont mortes
    et masquees de la liste de selection (les index sont preserves) */
-const __SOURCE_ACTIVE=[3,4,6,7,8];
+const __SOURCE_ACTIVE=[3,6,7,8];
 const __SOURCE_ACTIVE_NAME=__SOURCE_ACTIVE.map(function(s){return __SOURCE_NAME[s-1];});
 
 /* video res change */
@@ -7023,6 +7023,129 @@ const list={
   }
 };
 
+/* OpenSubtitles fallback : recupere des sous-titres externes quand la
+   source selectionnee n'en fournit pas (cle API gratuite a renseigner
+   dans Settings > OpenSubtitles API Key) */
+const subfallback={
+  UA:'AnimeTVBeta v1.0',
+  apikey:function(){
+    return _JSAPI.storeGet(_API.user_prefix+'opensub_key','');
+  },
+  active:function(){
+    return subfallback.apikey()!='' &&
+      pb.cfg_data.lang!='nosub' && pb.cfg_data.lang!='hard' && pb.cfg_data.lang!='dub';
+  },
+  try:function(){
+    if (!subfallback.active()){
+      return;
+    }
+    var title=pb.data.title||'';
+    if (!title){
+      return;
+    }
+    var lang=pb.cfg_data.lang;
+    var langs=(lang&&lang!='')?lang:'fr,en';
+    var q='query='+encodeURIComponent(title)+'&languages='+encodeURIComponent(langs);
+    var ep=parseInt(pb.ep_val)||0;
+    if (ep>0){
+      q+='&type=episode&season_number=1&episode_number='+ep;
+    }
+    else{
+      q+='&type=movie';
+    }
+    console.log("SUBFALLBACK search: "+title+" / "+langs);
+    $ap('https://api.opensubtitles.com/api/v1/subtitles?'+q,function(r){
+      if (!r.ok){
+        return;
+      }
+      try{
+        var j=JSON.parse(r.responseText);
+        var data=j.data||[];
+        if (!data.length){
+          console.log("SUBFALLBACK: no result");
+          return;
+        }
+        var pick=subfallback.pick(data,lang);
+        if (!pick){
+          return;
+        }
+        var attrs=pick.attributes;
+        var files=attrs.files||[];
+        if (!files.length){
+          return;
+        }
+        console.log("SUBFALLBACK: got "+attrs.language+" -> "+files[0].file_name);
+        subfallback.download(files[0].file_id,attrs.language);
+      }catch(e){
+        console.log("SUBFALLBACK parse err: "+e);
+      }
+    },{
+      'Api-Key':subfallback.apikey(),
+      'User-Agent':subfallback.UA
+    }).timeout=10000;
+  },
+  pick:function(data,lang){
+    /* priorite : langue configuree, puis fr, en, puis premiere */
+    function langOf(d){
+      return (d.attributes.language||'').toLowerCase();
+    }
+    var prefs=[];
+    if (lang&&lang!=''){
+      prefs.push(lang.toLowerCase());
+    }
+    prefs.push('fr');
+    prefs.push('en');
+    for (var p=0;p<prefs.length;p++){
+      for (var i=0;i<data.length;i++){
+        if (langOf(data[i])==prefs[p]||langOf(data[i]).indexOf(prefs[p])==0){
+          return data[i];
+        }
+      }
+    }
+    return data[0];
+  },
+  download:function(fileId,language){
+    $ap('https://api.opensubtitles.com/api/v1/download',function(r){
+      if (!r.ok){
+        return;
+      }
+      try{
+        var j=JSON.parse(r.responseText);
+        if (!j.link){
+          return;
+        }
+        console.log("SUBFALLBACK: loading "+j.link);
+        vtt.load({
+          u:j.link,
+          d:0,
+          l:(language||'fr')+' (opensubtitles)',
+          ext:1
+        });
+      }catch(e){
+        console.log("SUBFALLBACK download err: "+e);
+      }
+    },{
+      'Api-Key':subfallback.apikey(),
+      'Content-Type':'application/json',
+      'X-Post-Body':JSON.stringify({file_id:fileId})
+    }).timeout=10000;
+  },
+  config:function(){
+    _API.textPrompt(
+      "OpenSubtitles API Key",
+      "Enter your free OpenSubtitles.com API key<br>(opensubtitles.com &gt; Settings &gt; API).<br><br>"+
+      "Used to fetch subtitles when the selected source has none.<br>Leave empty to disable.",
+      false,64,subfallback.apikey(),
+      function(v){
+        if (v!=null){
+          _JSAPI.storeSet(_API.user_prefix+'opensub_key',(v+'').trim());
+          _API.showToast(((v+'').trim()!='')?"OpenSubtitles fallback enabled":"OpenSubtitles fallback disabled");
+        }
+      }
+    );
+  }
+};
+
 /* subtitle libs (c) amarullz.com */
 const vtt={
   h:$('vtt_subtitle'),
@@ -7295,6 +7418,10 @@ const vtt={
       }
       vtt.load(subs[0]);
       // vtt.castSetIndex(1);
+    }
+    else{
+      /* Aucun sous-titre fourni par la source : fallback externe */
+      subfallback.try();
     }
   },
   match_lang:{ 
@@ -7605,21 +7732,27 @@ const vtt={
     vtt.playback.show=false;
     // console.log("LOADING SUBTITLE = "+JSON.stringify(sub));
     var hdr=null;
-    if (__SD5){
-      hdr=__AFLIX.origin_dev;
-    }
-    else if (__SD6){
-      hdr=kaas.subtitle_origin;
-    }else if (__SD7){
-      hdr=gojo.subtitle_origin;
-    }else if (__SD8){
-      hdr=miruro.add_headers;
+    if (!sub.ext){
+      if (__SD5){
+        hdr=__AFLIX.origin_dev;
+      }
+      else if (__SD6){
+        hdr=kaas.subtitle_origin;
+      }else if (__SD7){
+        hdr=gojo.subtitle_origin;
+      }else if (__SD8){
+        hdr=miruro.add_headers;
+      }
     }
     $ap(sub.u,function(r){
       if (r.ok){
         sub.v=r.responseText;
         // console.log("LOADING GET SUB RAW = "+sub.v);
-        if (__SD5){
+        if (sub.ext){
+          /* Source externe : SRT -> timecodes VTT (virgule -> point) */
+          sub.p=vtt.parse(sub.v.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g,"$1.$2"));
+        }
+        else if (__SD5){
           sub.p=vtt.parse_ass(sub.v);
           // console.log("LOADING PARSED ASS = "+JSON.stringify(sub.p));
         }
@@ -10707,6 +10840,11 @@ const pb={
       else if (key=='checknightly'){
         if (home.onsettings){
           _API.checkNightly();
+        }
+      }
+      else if (key=='opensubkey'){
+        if (home.onsettings){
+          subfallback.config();
         }
       }
       else if (key=="miruroprovider"){
@@ -16507,6 +16645,14 @@ const home={
             },
             home.settings.about.P,
             "<c>update</c> Check for Update"
+          );
+
+          home.settings.tools._s_opensub=$n(
+            'div','',{
+              action:'*opensubkey'
+            },
+            home.settings.about.P,
+            "<c>subtitles</c> OpenSubtitles API Key"
           );
         }
       }
