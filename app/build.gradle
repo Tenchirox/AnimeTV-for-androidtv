@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+def keystoreProps = new Properties()
+keystoreProps.load(new FileInputStream(rootProject.file('keystore/keystore.properties')))
+
 android {
     namespace 'com.amarullz.androidtv.animetvjmto'
     compileSdk 34
@@ -10,8 +13,8 @@ android {
         applicationId "org.tenchirock.animetv"
         minSdk 22
         targetSdk 34
-        versionCode 667
-        versionName "6.6.8-Nightly"
+        versionCode 668
+        versionName "6.6.9-Nightly"
 
         buildConfigField "long", "TIMESTAMP", System.currentTimeMillis() + "L"
     }
@@ -22,22 +25,24 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            storeFile rootProject.file('keystore/release.keystore')
+            storePassword keystoreProps['storePassword']
+            keyAlias keystoreProps['keyAlias']
+            keyPassword keystoreProps['keyPassword']
+        }
+    }
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
         }
         debug {
             minifyEnabled false
-        }
-    }
-    signingConfigs {
-        debug {
-            storeFile file('../keystore/debug.keystore')
-            storePassword "android"
-            keyAlias "androiddebugkey"
-            keyPassword "android"
+            /* Meme certificat partout : identite unique (local + CI + maj) */
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {
