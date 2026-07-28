@@ -5623,7 +5623,7 @@ const _API={
                       d.nightly?"Downloading Nightly Build...":"Downloading Stable Build..."
                     );
 
-                    _JSAPI.installApk(d.url,d.nightly);
+                    _JSAPI.installApk(d.url,d.nightly,d.sha256);
                     setTimeout(reCheckForOnUpdate,500);
                     return;
                   });

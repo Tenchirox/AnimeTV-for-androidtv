@@ -76,4 +76,17 @@ public class VersionUtilsTest {
     assertEquals("? MB", VersionUtils.formatSize(0));
     assertEquals("? MB", VersionUtils.formatSize(-42));
   }
+
+  @Test
+  public void parseSha256Digest_valid() {
+    assertEquals("ab12cd",
+        VersionUtils.parseSha256Digest("sha256:ab12cd"));
+  }
+
+  @Test
+  public void parseSha256Digest_otherAlgo() {
+    assertEquals(null, VersionUtils.parseSha256Digest("md5:ab12cd"));
+    assertEquals(null, VersionUtils.parseSha256Digest(""));
+    assertEquals(null, VersionUtils.parseSha256Digest(null));
+  }
 }

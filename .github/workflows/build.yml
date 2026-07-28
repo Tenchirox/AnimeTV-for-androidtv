@@ -59,11 +59,18 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           TAG="v$VERSION"
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           gh release delete "$TAG" -y --cleanup-tag || true
-          gh release create "$TAG" app/build/outputs/apk/release/*.apk \
+          gh release create "$TAG" "$APK" \
             --title "AnimeTV $VERSION" \
-            --notes "$COMMIT_MSG" \
+            --notes "$COMMIT_MSG
+
+          SHA-256: \`$SHA\`" \
             --latest
+          # Asset a nom fixe pour l'URL de telechargement direct stable
+          cp "$APK" animetv-latest.apk
+          gh release upload "$TAG" animetv-latest.apk --clobber
 
       - name: Publish last-nightly metadata asset
         if: github.event_name == 'push'
@@ -77,11 +84,12 @@ jobs:
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           FNAME=$(basename "$APK")
           SIZE=$(python3 -c "import os;print(f\"{os.path.getsize('$APK')/1048576:.1f}MB\")")
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           TAG="v$VERSION"
           URL="https://github.com/$REPO/releases/download/$TAG/$FNAME"
           TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           FNAME="$FNAME" SIZE="$SIZE" TAG="$TAG" URL="$URL" TIME="$TIME" \
-          VNUM="$VERSIONCODE" MSG="$COMMIT_MSG" python3 - <<'EOF'
+          VNUM="$VERSIONCODE" MSG="$COMMIT_MSG" SHA="$SHA" python3 - <<'EOF'
           import json, os
           entry = [{
               "vnum": int(os.environ["VNUM"]),
@@ -90,7 +98,8 @@ jobs:
               "filename": os.environ["FNAME"],
               "filesize": os.environ["SIZE"],
               "content": os.environ["MSG"],
-              "url": os.environ["URL"]
+              "url": os.environ["URL"],
+              "sha256": os.environ["SHA"]
           }]
           with open("last-nightly", "w") as f:
               json.dump(entry, f, indent=2)

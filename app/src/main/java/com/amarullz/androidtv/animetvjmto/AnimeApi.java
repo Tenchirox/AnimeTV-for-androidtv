@@ -434,6 +434,17 @@ public class AnimeApi extends WebViewClient {
 
   /** Lance le telechargement + installation d'une mise a jour. */
   public boolean startUpdateApk(String url, boolean isNightly) {
+    return startUpdateApk(url, isNightly, null);
+  }
+
+  /**
+   * Lance le telechargement + installation d'une mise a jour, avec
+   * verification d'integrite SHA-256 si un hash est fourni.
+   *
+   * @param expectedSha256 hash hexadecimal attendu (peut etre null : pas de
+   *                       verification, comportement legacy)
+   */
+  public boolean startUpdateApk(String url, boolean isNightly, String expectedSha256) {
     if (updateIsInProgress) {
       Toast.makeText(activity, (isNightly ? "Nightly" : "Update") +
           " already on progress", Toast.LENGTH_SHORT).show();
@@ -449,14 +460,33 @@ public class AnimeApi extends WebViewClient {
           http.execute();
           int sizeMb = http.body.size() / (1024 * 1024);
           Log.d(_TAG, "APK DOWNLOADED = " + sizeMb + "MB");
-          activity.runOnUiThread(() -> Toast.makeText(activity,
-              (isNightly ? "Nightly" : "Update") + " has been downloaded (" +
-                  sizeMb + "MB)", Toast.LENGTH_LONG).show());
           File fp = new File(apkTempFile());
           FileOutputStream fos = new FileOutputStream(fp);
           http.body.writeTo(fos);
           fos.flush();
           fos.close();
+
+          /* Verification d'integrite SHA-256 */
+          if (expectedSha256 != null && !expectedSha256.isEmpty()) {
+            String actual = sha256File(fp);
+            if (!expectedSha256.equalsIgnoreCase(actual)) {
+              Log.e(_TAG, "APK HASH MISMATCH: expected=" + expectedSha256 +
+                  " actual=" + actual);
+              fp.delete();
+              updateIsInProgress = false;
+              activity.runOnUiThread(() -> Toast.makeText(activity,
+                  "Download " + (isNightly ? "Nightly " : "") +
+                      "Update Failed: integrity check error",
+                  Toast.LENGTH_LONG).show());
+              return;
+            }
+            Log.d(_TAG, "APK HASH OK = " + actual);
+          }
+
+          int finalSizeMb = sizeMb;
+          activity.runOnUiThread(() -> Toast.makeText(activity,
+              (isNightly ? "Nightly" : "Update") + " has been downloaded (" +
+                  finalSizeMb + "MB)", Toast.LENGTH_LONG).show());
           installApk(fp);
           updateIsInProgress = false;
         } catch (Exception e) {
@@ -471,8 +501,31 @@ public class AnimeApi extends WebViewClient {
     return true;
   }
 
+  /** Extrait le hash hex d'un champ "digest" GitHub ("sha256:ab12..."). */
+  public static String parseSha256Digest(String digest) {
+    return VersionUtils.parseSha256Digest(digest);
+  }
+
+  /** Calcule le SHA-256 hexadecimal d'un fichier. */
+  public static String sha256File(File file) throws Exception {
+    java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+      byte[] buffer = new byte[8192];
+      int read;
+      while ((read = fis.read(buffer)) != -1) {
+        md.update(buffer, 0, read);
+      }
+    }
+    StringBuilder sb = new StringBuilder();
+    for (byte b : md.digest()) {
+      sb.append(String.format("%02x", b));
+    }
+    return sb.toString();
+  }
+
   /** Dialogue de proposition de mise a jour. */
-  private void showUpdateDialog(String url, String appver, String appnote, String appsize) {
+  private void showUpdateDialog(String url, String appver, String appnote,
+      String appsize, String sha256) {
     new AlertDialog.Builder(activity)
         .setTitle("Update Available - Version " + appver)
         .setMessage("Download Size : " + appsize + "\n\nChangelogs:\n" + appnote)
@@ -488,7 +541,7 @@ public class AnimeApi extends WebViewClient {
         })
         .setPositiveButton("Update Now", (dialog, which) -> {
           Toast.makeText(activity, "Downloading Update...", Toast.LENGTH_SHORT).show();
-          startUpdateApk(url, false);
+          startUpdateApk(url, false, sha256);
         })
         .show();
   }
@@ -535,8 +588,9 @@ public class AnimeApi extends WebViewClient {
 
         /* Nouvelle version de l'application ? */
         if (isNewerVersion(tagName, BuildConfig.VERSION_NAME)) {
-          /* Cherche l'asset APK de la release */
+          /* Cherche l'asset APK de la release (+ son hash SHA-256) */
           String apkUrl = null;
+          String apkSha256 = null;
           long apkSize = 0;
           org.json.JSONArray assets = release.optJSONArray("assets");
           if (assets != null) {
@@ -545,6 +599,8 @@ public class AnimeApi extends WebViewClient {
               if (asset.getString("name").endsWith(".apk")) {
                 apkUrl = asset.getString("browser_download_url");
                 apkSize = asset.optLong("size", 0);
+                /* "digest": "sha256:..." (fourni par l'API GitHub) */
+                apkSha256 = parseSha256Digest(asset.optString("digest", ""));
                 break;
               }
             }
@@ -558,11 +614,13 @@ public class AnimeApi extends WebViewClient {
           final String appver = tagName;
           final String appnote = release.optString("body", "");
           final String appsize = VersionUtils.formatSize(apkSize);
+          final String appsha = apkSha256;
           Log.d(_TAG, "showUpdateDialog = " + appver + " / " + appsize + " / " +
               appurl);
           boolean updateState = pref.getBoolean("update-disable", false);
           if (!updateState || showMessage) {
-            activity.runOnUiThread(() -> showUpdateDialog(appurl, appver, appnote, appsize));
+            activity.runOnUiThread(() ->
+                showUpdateDialog(appurl, appver, appnote, appsize, appsha));
           } else {
             activity.runOnUiThread(() -> Toast.makeText(activity,
                 "Update version " + appver + " is available...",

@@ -1602,6 +1602,11 @@ public class AnimeView extends WebViewClient {
     }
 
     @JavascriptInterface
+    public boolean installApk(String url, boolean isNightly, String sha256) {
+      return aApi.startUpdateApk(url, isNightly, sha256);
+    }
+
+    @JavascriptInterface
     public boolean isOnUpdate() {
       return aApi.updateIsInProgress;
     }
@@ -2017,7 +2022,9 @@ public class AnimeView extends WebViewClient {
     public int videoGetDuration() {
       runOnUiThreadWait(() -> {
         try {
-          videoDuration = (int) Math.floor(videoPlayer.getDuration());
+          long duration = videoPlayer.getDuration();
+          /* TIME_UNSET (negatif) -> 0 au lieu d'un cast absurde */
+          videoDuration = duration > 0 ? (int) duration : 0;
         } catch (Exception ignored) {
         }
       });
@@ -2028,7 +2035,8 @@ public class AnimeView extends WebViewClient {
     public int videoGetPosition() {
       runOnUiThreadWait(() -> {
         try {
-          videoPosition = (int) Math.ceil(videoPlayer.getCurrentPosition());
+          long position = videoPlayer.getCurrentPosition();
+          videoPosition = position > 0 ? (int) position : 0;
         } catch (Exception ignored) {
         }
       });

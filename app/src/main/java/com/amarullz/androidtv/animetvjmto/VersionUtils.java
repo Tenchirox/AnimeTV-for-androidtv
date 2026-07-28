@@ -60,4 +60,17 @@ public final class VersionUtils {
     }
     return String.format(Locale.US, "%.1f MB", bytes / 1048576.0);
   }
+
+  /**
+   * Extrait le hash hex d'un champ "digest" de l'API GitHub Releases
+   * (format "sha256:ab12cd...").
+   *
+   * @return le hash hexadecimal, ou null si absent/autre algorithme
+   */
+  public static String parseSha256Digest(String digest) {
+    if (digest != null && digest.startsWith("sha256:")) {
+      return digest.substring(7).trim();
+    }
+    return null;
+  }
 }

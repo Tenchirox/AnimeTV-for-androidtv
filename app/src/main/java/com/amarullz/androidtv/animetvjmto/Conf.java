@@ -51,10 +51,7 @@ public class Conf {
 
   /* Domaines des hebergeurs de flux video */
   public static volatile String STREAM_DOMAIN = "krussdomi.com";
-  public static volatile String STREAM_DOMAIN2 = "megaf.cc";
   public static volatile String STREAM_DOMAIN3 = "megacloud.blog";
-  public static volatile String STREAM_DOMAIN4 = "rapid-cloud.co";
-  public static volatile String STREAM_DOMAIN5 = "megaup.nl";
 
   /* Version du "serveur" (fichier de config distant), sert a detecter les maj */
   public static volatile String SERVER_VER = "1.0-APK";
