@@ -7344,15 +7344,16 @@ const vtt={
     var l=d.split('\n');
     var t=[];
     var p=-1;
+    /* true uniquement dans le corps (texte) d'un cue : les identifiants de
+       cue (1, 2, _3...), l'entete WEBVTT et les blocs NOTE/STYLE sont ignores */
+    var inCue=false;
     try{
       for (var n=0;n<l.length;n++){
-        var s=false;
         var ln=l[n];
         if (ln.indexOf("-->")>0){
           try{
             var range=ln.replace(/ /g,'').split("-->",2);
             if (range.length==2){
-              // range[1].split(' ')
               t.push(
                 {
                   ti:p+1,
@@ -7362,19 +7363,25 @@ const vtt={
                   tx:''
                 }
               );
-              s=true;
               p++;
+              inCue=true;
             }
           }catch(ee){}
+          continue;
         }
-        if (!s&&p>=0){
+        if (ln.trim()===''){
+          /* ligne vide = separateur de cues */
+          inCue=false;
+          continue;
+        }
+        if (inCue&&p>=0){
           if (__SD6){
             if (ln.indexOf('kickassanimes.info')>0){
               ln='';
             }
           }
           /* remove escapes */
-          ln=ln.replace(/{b}/g,'<b>').replace(/{\/b}/g,'</b>').replace(/{i}/g,'<i>').replace(/{\/i}/g,'</i>').replace(/{u}/g,'<u>').replace(/{\/u}/g,'</u>');
+          ln=ln.replace(/{b}/g,'<b>').replace(/{\/b}/g,'<\/b>').replace(/{i}/g,'<i>').replace(/{\/i}/g,'<\/i>').replace(/{u}/g,'<u>').replace(/{\/u}/g,'<\/u>');
           ln=ln.replace(/{[\*\=][^}]*}/g,"");
           t[p].tx+='\n'+ln;
           t[p].tx=t[p].tx.trim();
