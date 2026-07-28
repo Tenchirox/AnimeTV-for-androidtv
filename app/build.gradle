@@ -10,8 +10,8 @@ android {
         applicationId "org.tenchirock.animetv"
         minSdk 22
         targetSdk 34
-        versionCode 666
-        versionName "6.6.7-Nightly"
+        versionCode 667
+        versionName "6.6.8-Nightly"
 
         buildConfigField "long", "TIMESTAMP", System.currentTimeMillis() + "L"
     }

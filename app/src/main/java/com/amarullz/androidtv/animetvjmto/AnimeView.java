@@ -1583,10 +1583,10 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public String getVersion(int type) {
       if (type == 0) {
-        return "6.6.7-Nightly";
+        return BuildConfig.VERSION_NAME;
       }
       if (type == 2) {
-        return "666";
+        return String.valueOf(BuildConfig.VERSION_CODE);
       }
       return BUILD_VERSION;
     }

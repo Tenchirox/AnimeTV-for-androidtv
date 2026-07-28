@@ -6912,8 +6912,9 @@ const _API={
         srv="Server "+srv;
       }
       verel.innerHTML="<b>AnimeTV "+_JSAPI.getVersion(0)+" "+
-        "&copy; 2023-2024 amarullz.com</b><br />Build "+_JSAPI.getVersion(1)
-        +" - "+srv+" - Source "+__SD_NAME;
+        "&copy; 2023-2026 amarullz.com</b><br />Build "+_JSAPI.getVersion(1)
+        +" - "+srv+" - Source "+__SD_NAME+
+        "<br />Fork: github.com/Tenchirox/AnimeTV-for-androidtv";
     }
   }catch(e){}
 
