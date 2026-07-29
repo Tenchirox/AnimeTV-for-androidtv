@@ -7035,9 +7035,21 @@ const subfallback={
     return subfallback.apikey()!='' &&
       pb.cfg_data.lang!='nosub' && pb.cfg_data.lang!='hard' && pb.cfg_data.lang!='dub';
   },
-  try:function(){
+  try:function(manual){
     if (!subfallback.active()){
+      if (manual){
+        if (subfallback.apikey()==''){
+          _API.showToast("Set your OpenSubtitles API key in Settings first");
+        }
+        else{
+          _API.showToast("OpenSubtitles is disabled for this subtitle mode");
+        }
+      }
       return;
+    }
+    subfallback._manual=manual;
+    if (manual){
+      _API.showToast("Searching OpenSubtitles...");
     }
     var title=pb.data.title||'';
     if (!title){
@@ -7063,6 +7075,10 @@ const subfallback={
         var data=j.data||[];
         if (!data.length){
           console.log("SUBFALLBACK: no result");
+          if (subfallback._manual){
+            _API.showToast("OpenSubtitles: no result");
+            subfallback._manual=false;
+          }
           return;
         }
         var pick=subfallback.pick(data,lang);
@@ -7115,6 +7131,10 @@ const subfallback={
           return;
         }
         console.log("SUBFALLBACK: loading "+j.link);
+        if (subfallback._manual){
+          _API.showToast("Subtitle found: "+(language||''));
+          subfallback._manual=false;
+        }
         vtt.load({
           u:j.link,
           d:0,
@@ -7330,7 +7350,7 @@ const vtt={
         function(chval){
           if (chval==0){
             /* Force la recherche OpenSubtitles meme si des pistes existent */
-            subfallback.try();
+            subfallback.try(true);
             return;
           }
           if (chval!=null){
@@ -11168,6 +11188,9 @@ const pb={
       else if (key=="ccstyle"){
         vtt.changestyle();
       }
+      else if (key=="opensubsearch"){
+        subfallback.try(true);
+      }
       else if (key=="alang"){
         listOrder.showList(
           "Audio Language",
@@ -12518,6 +12541,9 @@ const pb={
     }
 
     pb.pb_settings._s_alang=$n('div','',{action:'*alang'},pb.pb_settings.P,'<c>text_to_speech</c> <span>Original</span>');
+
+    /* Recherche manuelle de sous-titres externes (OpenSubtitles) */
+    pb.pb_settings._s_opensub=$n('div','',{action:'*opensubsearch'},pb.pb_settings.P,'<c>travel_explore</c> <span>OpenSubtitles</span>');
     
     /*
     sub, softsub, dub
