@@ -588,20 +588,28 @@ public class AnimeApi extends WebViewClient {
 
         /* Nouvelle version de l'application ? */
         if (isNewerVersion(tagName, BuildConfig.VERSION_NAME)) {
-          /* Cherche l'asset APK de la release (+ son hash SHA-256) */
+          /* Cherche l'asset APK de la release (+ son hash SHA-256),
+           * en privilegiant celui de la variante courante (legacy/modern) */
           String apkUrl = null;
           String apkSha256 = null;
           long apkSize = 0;
           org.json.JSONArray assets = release.optJSONArray("assets");
           if (assets != null) {
-            for (int i = 0; i < assets.length(); i++) {
-              JSONObject asset = assets.getJSONObject(i);
-              if (asset.getString("name").endsWith(".apk")) {
-                apkUrl = asset.getString("browser_download_url");
-                apkSize = asset.optLong("size", 0);
-                /* "digest": "sha256:..." (fourni par l'API GitHub) */
-                apkSha256 = parseSha256Digest(asset.optString("digest", ""));
-                break;
+            String flavorSuffix = "-" + BuildConfig.FLAVOR + ".apk";
+            for (int pass = 0; pass < 2 && apkUrl == null; pass++) {
+              for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.getJSONObject(i);
+                String name = asset.getString("name");
+                boolean match = (pass == 0)
+                    ? name.endsWith(flavorSuffix)
+                    : name.endsWith(".apk");
+                if (match) {
+                  apkUrl = asset.getString("browser_download_url");
+                  apkSize = asset.optLong("size", 0);
+                  /* "digest": "sha256:..." (fourni par l'API GitHub) */
+                  apkSha256 = parseSha256Digest(asset.optString("digest", ""));
+                  break;
+                }
               }
             }
           }

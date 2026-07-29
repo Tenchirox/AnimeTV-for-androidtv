@@ -210,6 +210,8 @@ public class AnimeView extends WebViewClient {
       settings.setAlgorithmicDarkeningAllowed(false);
     }
     settings.setGeolocationEnabled(false);
+    /* Configuration specifique a la variante (legacy/modern) */
+    CompatImpl.configureWebView(settings);
     webView.addJavascriptInterface(new JSViewApi(), "_JSAPI");
     webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
@@ -940,6 +942,22 @@ public class AnimeView extends WebViewClient {
     webView.setVisibility(View.VISIBLE);
     activity.runOnUiThread(() -> webView.requestFocus());
     webViewReady = true;
+  }
+
+  /**
+   * Crash du processus de rendu WebView (appele uniquement sur API 26+).
+   * Delegue a l'implementation de la variante (legacy/modern).
+   */
+  @android.annotation.TargetApi(26)
+  @Override
+  public boolean onRenderProcessGone(WebView view,
+      android.webkit.RenderProcessGoneDetail detail) {
+    Log.e(_TAG, "WebView render process gone (crash=" +
+        (Build.VERSION.SDK_INT >= 26 && detail.didCrash()) + ")");
+    if (Build.VERSION.SDK_INT < 26) {
+      return false;
+    }
+    return CompatImpl.onRenderProcessGone(this);
   }
 
   /* ------------------------------------------------------------------

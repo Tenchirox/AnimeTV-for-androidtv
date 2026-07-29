@@ -11,11 +11,19 @@ from the 6.6.7-Nightly APK.*
 
 ## Téléchargement
 
-➡️ **[Télécharger la dernière version](https://github.com/Tenchirox/AnimeTV-for-androidtv/releases/latest/download/animetv-latest.apk)**
-(ou choisir un asset dans [Releases](https://github.com/Tenchirox/AnimeTV-for-androidtv/releases))
+Deux variantes (même package, même signature — interchangeables) :
+
+| Variante | minSdk | targetSdk | Lecteur | Lien |
+|---|---|---|---|---|
+| **legacy** | 22 (Android 5.1+) | 34 | media3 1.4.1 | [animetv-latest.apk](https://github.com/Tenchirox/AnimeTV-for-androidtv/releases/latest/download/animetv-latest.apk) |
+| **modern** | 26 (Android 8+) | 35 | media3 1.5.1 + récupération crash WebView | [animetv-latest-modern.apk](https://github.com/Tenchirox/AnimeTV-for-androidtv/releases/latest/download/animetv-latest-modern.apk) |
+
+(ou choisir un asset versionné dans [Releases](https://github.com/Tenchirox/AnimeTV-for-androidtv/releases))
 
 Package : `org.tenchirock.animetv` — **installable à côté de l'application
-originale** (label "AnimeTV Beta").
+originale** (label "AnimeTV Beta"). Le code est partagé (`src/main`), les
+implémentations spécifiques sont dans `src/legacy` et `src/modern`
+(`CompatImpl`).
 
 ## Différences avec l'upstream
 
@@ -38,12 +46,14 @@ originale** (label "AnimeTV Beta").
 ## Build
 
 ```bash
-./gradlew assembleRelease   # APK dans app/build/outputs/apk/release/
-./gradlew testDebugUnitTest # tests unitaires
+./gradlew assembleRelease               # APKs legacy + modern dans app/build/outputs/apk/{legacy,modern}/release/
+./gradlew assembleLegacyRelease         # variante legacy uniquement
+./gradlew assembleModernRelease         # variante modern uniquement
+./gradlew testLegacyDebugUnitTest testModernDebugUnitTest
 ```
 
-Requis : JDK 17 + Android SDK (compileSdk 34). `minSdk 22`, `targetSdk 34`.
-La CI (`.github/workflows/build.yml`) compile, teste et publie la release à
+Requis : JDK 17 + Android SDK (compileSdk 35). La CI
+(`.github/workflows/build.yml`) compile, teste et publie la release à
 chaque push sur `master`.
 
 ## Sous-titres externes (OpenSubtitles)

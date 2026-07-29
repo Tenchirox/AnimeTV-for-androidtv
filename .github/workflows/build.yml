@@ -32,16 +32,16 @@ jobs:
       - name: Run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest
+          ./gradlew testLegacyDebugUnitTest testModernDebugUnitTest
 
-      - name: Build release APK
+      - name: Build release APK (legacy + modern)
         run: ./gradlew assembleRelease
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: animetv-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: animetv-apks
+          path: app/build/outputs/apk/*/release/*.apk
 
       - name: Read version info
         id: ver
@@ -59,18 +59,22 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           TAG="v$VERSION"
-          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          APK_LEGACY=$(ls app/build/outputs/apk/legacy/release/*.apk | head -1)
+          APK_MODERN=$(ls app/build/outputs/apk/modern/release/*.apk | head -1)
+          SHA_L=$(sha256sum "$APK_LEGACY" | cut -d' ' -f1)
+          SHA_M=$(sha256sum "$APK_MODERN" | cut -d' ' -f1)
           gh release delete "$TAG" -y --cleanup-tag || true
-          gh release create "$TAG" "$APK" \
+          gh release create "$TAG" "$APK_LEGACY" "$APK_MODERN" \
             --title "AnimeTV $VERSION" \
             --notes "$COMMIT_MSG
 
-          SHA-256: \`$SHA\`" \
+          SHA-256 legacy: \`$SHA_L\`
+          SHA-256 modern: \`$SHA_M\`" \
             --latest
-          # Asset a nom fixe pour l'URL de telechargement direct stable
-          cp "$APK" animetv-latest.apk
-          gh release upload "$TAG" animetv-latest.apk --clobber
+          # Assets a nom fixe pour les URLs de telechargement direct stables
+          cp "$APK_LEGACY" animetv-latest.apk
+          cp "$APK_MODERN" animetv-latest-modern.apk
+          gh release upload "$TAG" animetv-latest.apk animetv-latest-modern.apk --clobber
 
       - name: Publish last-nightly metadata asset
         if: github.event_name == 'push'
@@ -81,7 +85,7 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           REPO: ${{ github.repository }}
         run: |
-          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APK=$(ls app/build/outputs/apk/legacy/release/*.apk | head -1)
           FNAME=$(basename "$APK")
           SIZE=$(python3 -c "import os;print(f\"{os.path.getsize('$APK')/1048576:.1f}MB\")")
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)

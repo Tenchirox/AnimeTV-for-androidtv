@@ -7308,6 +7308,12 @@ const vtt={
     }
     requestAnimationFrame(function(){
       var sel=[];
+      /* Entree manuelle OpenSubtitles (index 0) pour forcer la recherche */
+      sel.push({
+        'icon':'travel_explore',
+        'title':'<span class="label">OpenSubtitles</span><span class="value vinline">'+
+          (subfallback.apikey()?'search':'no api key')+'</span>'
+      });
       for (var i=0;i<vtt.style_order.length;i++){
         var val=vtt.style_get(pb.cfg_data.ccstyle,i);
         // sel.push(vtt.style_type[i]+': '+val);
@@ -7322,7 +7328,13 @@ const vtt={
       //   sel, undefined, false, true, prev_selpos,
       listOrder.showMenu("Subtitle Style",sel,prev_selpos,
         function(chval){
+          if (chval==0){
+            /* Force la recherche OpenSubtitles meme si des pistes existent */
+            subfallback.try();
+            return;
+          }
           if (chval!=null){
+            chval--;
             $('popupcontainer').className='active';
             var ssel=vtt.style_get(pb.cfg_data.ccstyle,chval,3);
             prev_selpos=chval;

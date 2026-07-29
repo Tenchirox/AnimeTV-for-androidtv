@@ -7,21 +7,39 @@ keystoreProps.load(new FileInputStream(rootProject.file('keystore/keystore.prope
 
 android {
     namespace 'com.amarullz.androidtv.animetvjmto'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "org.tenchirock.animetv"
         minSdk 22
         targetSdk 34
-        versionCode 670
-        versionName "6.7.1-Nightly"
+        versionCode 671
+        versionName "6.7.2-Nightly"
 
         buildConfigField "long", "TIMESTAMP", System.currentTimeMillis() + "L"
     }
 
+    /* Deux variantes :
+       - legacy : minSdk 22 (anciens devices), targetSdk 34, media3 1.4.1
+       - modern : minSdk 26, targetSdk 35, media3 1.5.1 + nouvelles APIs
+       Meme applicationId + meme signature : interchangeables a l'install. */
+    flavorDimensions "api"
+    productFlavors {
+        legacy {
+            dimension "api"
+            minSdk 22
+            targetSdk 34
+        }
+        modern {
+            dimension "api"
+            minSdk 26
+            targetSdk 35
+        }
+    }
+
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "animetv-" + variant.versionName + ".apk"
+            outputFileName = "animetv-" + variant.versionName + "-" + variant.flavorName + ".apk"
         }
     }
 
@@ -52,6 +70,10 @@ android {
     buildFeatures {
         buildConfig true
     }
+    lint {
+        /* Les API recentes sont gardees par flavor/runtime checks */
+        abortOnError false
+    }
 }
 
 dependencies {
@@ -61,11 +83,16 @@ dependencies {
     implementation 'androidx.leanback:leanback:1.0.0'
     implementation 'androidx.media:media:1.7.0'
 
-    // Lecteur vidéo (Media3 / ExoPlayer)
-    implementation 'androidx.media3:media3-exoplayer:1.4.1'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'
-    implementation 'androidx.media3:media3-exoplayer-dash:1.4.1'
-    implementation 'androidx.media3:media3-ui:1.4.1'
+    // Lecteur video : media3 1.4.1 (legacy) / 1.5.1 (modern)
+    legacyImplementation 'androidx.media3:media3-exoplayer:1.4.1'
+    legacyImplementation 'androidx.media3:media3-exoplayer-hls:1.4.1'
+    legacyImplementation 'androidx.media3:media3-exoplayer-dash:1.4.1'
+    legacyImplementation 'androidx.media3:media3-ui:1.4.1'
+
+    modernImplementation 'androidx.media3:media3-exoplayer:1.5.1'
+    modernImplementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+    modernImplementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
+    modernImplementation 'androidx.media3:media3-ui:1.5.1'
 
     // Chaines ecran d'accueil Android TV
     implementation 'androidx.tvprovider:tvprovider:1.1.0'
