@@ -17,7 +17,6 @@ import android.graphics.drawable.VectorDrawable;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.Build;
-import android.util.Log;
 
 import androidx.tvprovider.media.tv.Channel;
 import androidx.tvprovider.media.tv.ChannelLogoUtils;
@@ -102,7 +101,7 @@ public class AnimeProvider {
       id = initChannel(channelName, providerId);
     } catch (Exception e) {
       id = -1;
-      Log.d(_TAG, e.toString());
+      ALog.d(_TAG, e.toString());
     }
     channelId = id;
   }
@@ -152,7 +151,7 @@ public class AnimeProvider {
 
   /** Planifie le job periodique de mise a jour des chaines (toutes les heures). */
   public static void scheduleJob(Context context) {
-    Log.d(_TAG, "SCHEDULING JOB");
+    ALog.d(_TAG, "SCHEDULING JOB");
     JobInfo.Builder builder = new JobInfo.Builder(0,
         new ComponentName(context, ChannelService.class));
     builder.setMinimumLatency(3600000);
@@ -179,7 +178,7 @@ public class AnimeProvider {
       parseAiringSchedules(result, http.body.toString());
       callback.onFinish(result.toString());
       if (result.length() > 0) {
-        Log.d(_TAG, "GOT RECENTS => " + result.length());
+        ALog.d(_TAG, "GOT RECENTS => " + result.length());
         callback.onFinish(result.toString());
         return;
       }
@@ -384,7 +383,7 @@ public class AnimeProvider {
       }
     } while (cursor.moveToNext());
     cursor.close();
-    Log.d(_TAG, "Cleanup " + count + " Programs");
+    ALog.d(_TAG, "Cleanup " + count + " Programs");
   }
 
   /** Cree la chaine (ou retrouve l'existante par son provider id). */
@@ -406,9 +405,9 @@ public class AnimeProvider {
         .build();
     Uri channelUri = ctx.getContentResolver().insert(
         TvContract.Channels.CONTENT_URI, channel.toContentValues());
-    Log.d(_TAG, "Created Channel = " + channelUri);
+    ALog.d(_TAG, "Created Channel = " + channelUri);
     long id = ContentUris.parseId(channelUri);
-    Log.d(_TAG, "channel id " + id);
+    ALog.d(_TAG, "channel id " + id);
 
     /* Logo de la chaine */
     try {
@@ -425,7 +424,7 @@ public class AnimeProvider {
       }
       ChannelLogoUtils.storeChannelLogo(ctx, id, bitmap);
     } catch (Exception e) {
-      Log.i(_TAG, "Failed to store the logo", e);
+      ALog.i(_TAG, "Failed to store the logo (" + e + ")");
     }
     return id;
   }
@@ -447,14 +446,14 @@ public class AnimeProvider {
       while (cursor.moveToNext()) {
         if (providerId.equals(cursor.getString(providerIndex))) {
           long id = cursor.getLong(idIndex);
-          Log.d(_TAG, "Found existing channel ID: " + id);
+          ALog.d(_TAG, "Found existing channel ID: " + id);
           cursor.close();
           return id;
         }
       }
       cursor.close();
     } catch (Exception e) {
-      Log.e(_TAG, "Error finding channel", e);
+      ALog.e(_TAG, "Error finding channel", e);
     }
     return -1;
   }
@@ -514,7 +513,7 @@ public class AnimeProvider {
           .setPosterArtUri(Uri.parse(poster))
           .setIntentUri(intentUri)
           .build();
-      Log.d(_TAG, "New Watch Next Update = " + activity.getContentResolver().insert(
+      ALog.d(_TAG, "New Watch Next Update = " + activity.getContentResolver().insert(
           TvContract.WatchNextPrograms.CONTENT_URI, program.toContentValues()));
     } catch (Exception ignored) {
     }

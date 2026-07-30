@@ -19,7 +19,6 @@ import android.text.Html;
 import android.text.InputFilter;
 import android.text.format.DateFormat;
 import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
@@ -180,7 +179,7 @@ public class AnimeView extends WebViewClient {
     } catch (Exception e) {
       sysBrightness = 127;
     }
-    Log.d(_TAG, "ATVLOG Current Sys Brightness = " + sysBrightness);
+    ALog.d(_TAG, "ATVLOG Current Sys Brightness = " + sysBrightness);
     BUILD_VERSION = (String) DateFormat.format("yyMMddHHmm",
         new Date(BuildConfig.TIMESTAMP));
 
@@ -315,7 +314,7 @@ public class AnimeView extends WebViewClient {
       }
     } catch (Exception ignored) {
     }
-    Log.d(_TAG, "VIDEO-DATA-SOURCE : " + videoStatCurrentUrl +
+    ALog.d(_TAG, "VIDEO-DATA-SOURCE : " + videoStatCurrentUrl +
         " / ORIGIN : " + headers.get("Origin"));
 
     AnimeDataSource.Factory factory = new AnimeDataSource.Factory();
@@ -389,7 +388,7 @@ public class AnimeView extends WebViewClient {
           if (!audioSelected && !videoAudioLanguage.isEmpty() &&
               !label.isEmpty() &&
               label.toLowerCase().startsWith(videoAudioLanguage.toLowerCase())) {
-            Log.d(_TAG, "[TRACK] Audio Select(" + i + ", " + label + ")");
+            ALog.d(_TAG, "[TRACK] Audio Select(" + i + ", " + label + ")");
             trackSelector.setParameters(trackSelector.buildUponParameters()
                 .setOverrideForType(new TrackSelectionOverride(trackGroup, i)));
             audioSelected = true;
@@ -398,7 +397,7 @@ public class AnimeView extends WebViewClient {
             availLangs.append(",").append(
                 label.toLowerCase().substring(0, Math.min(3, label.length())));
           }
-          Log.d(_TAG, "[TRACK] Audio Available(" + i + ", " + label + ")");
+          ALog.d(_TAG, "[TRACK] Audio Available(" + i + ", " + label + ")");
         }
       } else if (group.getType() == C.TRACK_TYPE_VIDEO) {
         videoGroup = group;
@@ -421,7 +420,7 @@ public class AnimeView extends WebViewClient {
     currentVideoGroup = videoGroup;
 
     if (!audioSelected) {
-      Log.d(_TAG, "[TRACK] Audio Select Default");
+      ALog.d(_TAG, "[TRACK] Audio Select Default");
       /* Pas d'override : piste par defaut */
     }
 
@@ -439,24 +438,24 @@ public class AnimeView extends WebViewClient {
             }
           }
         }
-        Log.d(_TAG, "[TRACK] Sorted: " + i + " => " + sortedHeights[sortedIndex]);
+        ALog.d(_TAG, "[TRACK] Sorted: " + i + " => " + sortedHeights[sortedIndex]);
       }
       if (selectedTrack != -1) {
-        Log.d(_TAG, "[TRACK] Quality Selected: " + selectedTrack + " => " +
+        ALog.d(_TAG, "[TRACK] Quality Selected: " + selectedTrack + " => " +
             heights[selectedTrack]);
         trackSelector.setParameters(trackSelector.buildUponParameters()
             .setOverrideForType(new TrackSelectionOverride(
                 videoGroup.getMediaTrackGroup(), selectedTrack)));
       } else {
-        Log.d(_TAG, "[TRACK] Quality Selected: Auto - RES");
+        ALog.d(_TAG, "[TRACK] Quality Selected: Auto - RES");
         trackSelector.setParameters(trackSelector.buildUponParameters()
             .clearOverride(videoGroup.getMediaTrackGroup()));
       }
     } else {
-      Log.d(_TAG, "[TRACK] Quality Selected: Auto - NORES");
+      ALog.d(_TAG, "[TRACK] Quality Selected: Auto - NORES");
     }
 
-    Log.d(_TAG, "[TRACK] Avail-Langs = " + availLangs);
+    ALog.d(_TAG, "[TRACK] Avail-Langs = " + availLangs);
     activity.runOnUiThread(() -> {
       if (webView != null) {
         webView.evaluateJavascript(
@@ -477,17 +476,17 @@ public class AnimeView extends WebViewClient {
       DataSource.Factory dataSourceFactory = createVideoDataSourceFactory();
       MediaSource mediaSource;
       if (url.endsWith("#dash")) {
-        Log.d(_TAG, "VIDEO-SET-SOURCE (DASH) : " + url);
+        ALog.d(_TAG, "VIDEO-SET-SOURCE (DASH) : " + url);
         mediaSource = new DashMediaSource.Factory(dataSourceFactory)
             .createMediaSource(MediaItem.fromUri(url));
       } else if (url.endsWith(".mkv")) {
-        Log.d(_TAG, "VIDEO-SET-SOURCE (MKV) : " + url);
+        ALog.d(_TAG, "VIDEO-SET-SOURCE (MKV) : " + url);
         mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory,
             new DefaultExtractorsFactory())
             .createMediaSource(MediaItem.fromUri(url));
       } else {
         /* Detection automatique (HLS principalement) */
-        Log.d(_TAG, "VIDEO-SET-SOURCE (HLS) : " + url);
+        ALog.d(_TAG, "VIDEO-SET-SOURCE (HLS) : " + url);
         mediaSource = new DefaultMediaSourceFactory(activity)
             .setDataSourceFactory(dataSourceFactory)
             .createMediaSource(MediaItem.fromUri(url));
@@ -527,7 +526,7 @@ public class AnimeView extends WebViewClient {
       MainActivity mainActivity = (MainActivity) activity;
       mainActivity._metaState = isPlaying ? 3 : 2; /* PLAYING / PAUSED */
       mainActivity._metaPosition = videoPlayer.getCurrentPosition();
-      Log.d("ATVLOG_MEDIA", "mediaSetState=" + mainActivity._metaState);
+      ALog.d("ATVLOG_MEDIA", "mediaSetState=" + mainActivity._metaState);
       mainActivity.updateMediaState();
     }
 
@@ -536,7 +535,7 @@ public class AnimeView extends WebViewClient {
       MainActivity mainActivity = (MainActivity) activity;
       mainActivity._metaSpeed = params.speed;
       mainActivity._metaPosition = videoPlayer.getCurrentPosition();
-      Log.d("ATVLOG_MEDIA", "mediaSetSpeed=" + params.speed);
+      ALog.d("ATVLOG_MEDIA", "mediaSetSpeed=" + params.speed);
       mainActivity.updateMediaState();
     }
 
@@ -545,7 +544,7 @@ public class AnimeView extends WebViewClient {
       MainActivity mainActivity = (MainActivity) activity;
       long duration = videoPlayer.getDuration();
       mainActivity._metaDuration = duration < 0 ? -1 : duration;
-      Log.d("ATVLOG_MEDIA", "mediaSetDuration=" + duration);
+      ALog.d("ATVLOG_MEDIA", "mediaSetDuration=" + duration);
       mainActivity.updateMediaMeta();
       mainActivity._metaPosition = videoPlayer.getCurrentPosition();
       mainActivity.updateMediaState();
@@ -576,7 +575,7 @@ public class AnimeView extends WebViewClient {
   public boolean listPrompt(String message, final PromptCallback callback) {
     try {
       JSONObject json = new JSONObject(message);
-      Log.d(_TAG, "PROMPT: " + json);
+      ALog.d(_TAG, "PROMPT: " + json);
       String type = json.getString("type");
       CharSequence title = json.getString("title");
       if (type.equals("list")) {
@@ -744,7 +743,7 @@ public class AnimeView extends WebViewClient {
 
   /** Execute la requete de login MAL (password grant). */
   private void malStartLogin(String user, String password) {
-    Log.d(_TAG, "Login Mal -> " + user + ":" + password);
+    ALog.d(_TAG, "Login Mal -> " + user + ":" + password);
     ProgressDialog progressDialog = new ProgressDialog(activity);
     progressDialog.setMessage("Login to MyAnimeList..");
     progressDialog.show();
@@ -763,13 +762,13 @@ public class AnimeView extends WebViewClient {
         String result = http.body.toString();
         JSONObject json = new JSONObject(result);
         json.put("user", user);
-        Log.d(_TAG, "Login Mal -> RESULT = " + result);
+        ALog.d(_TAG, "Login Mal -> RESULT = " + result);
         activity.runOnUiThread(() -> webView.evaluateJavascript(
             "_MAL.onlogin(" + json + ");", null));
       } catch (Exception e) {
         activity.runOnUiThread(() -> webView.evaluateJavascript(
             "_MAL.onlogin(null);", null));
-        Log.d(_TAG, "Login Mal -> ERROR = " + e);
+        ALog.d(_TAG, "Login Mal -> ERROR = " + e);
       }
       progressDialog.dismiss();
     });
@@ -796,7 +795,7 @@ public class AnimeView extends WebViewClient {
     int position = bundle.getInt("VIDEO_CURRPOS", 0);
     videoStatScaleType = bundle.getInt("VIDEO_SCALETYPE", 0);
     String url = bundle.getString("VIDEO_CURR_URL");
-    Log.d(_TAG, "ONRESTORE -> " + position);
+    ALog.d(_TAG, "ONRESTORE -> " + position);
     initVideoView();
     videoViewSetScale(videoStatScaleType);
     if (url == null) {
@@ -828,7 +827,7 @@ public class AnimeView extends WebViewClient {
           }
         }
       }
-      Log.d(_TAG, "ONSTART -> " + videoStatCurrentPosition);
+      ALog.d(_TAG, "ONSTART -> " + videoStatCurrentPosition);
     } else {
       if (videoPlayer.getDuration() > 0) {
         videoStatCurrentPosition = (int) videoPlayer.getCurrentPosition();
@@ -837,7 +836,7 @@ public class AnimeView extends WebViewClient {
         videoStatCurrentPosition = 0;
         videoStatIsPlaying = false;
       }
-      Log.d(_TAG, "ONPAUSE -> " + videoStatCurrentPosition);
+      ALog.d(_TAG, "ONPAUSE -> " + videoStatCurrentPosition);
     }
   }
 
@@ -867,7 +866,7 @@ public class AnimeView extends WebViewClient {
 
   /** Signale au JS que la page player embarquee a ete injectee. */
   public void sendVidpageLoaded() {
-    Log.d(_TAG, "sendVidpageLoaded --> 1");
+    ALog.d(_TAG, "sendVidpageLoaded --> 1");
     AppExecutors.execute(() ->
         activity.runOnUiThread(() ->
             webView.evaluateJavascript("__VIDPAGELOADCB(1);", null)));
@@ -903,7 +902,7 @@ public class AnimeView extends WebViewClient {
   public void setVideoSize(int width, int height) {
     videoSizeWidth = width;
     videoSizeHeight = height;
-    Log.d(_TAG, "VIDEO SIZE " + width + "x" + height);
+    ALog.d(_TAG, "VIDEO SIZE " + width + "x" + height);
     AppExecutors.execute(() -> activity.runOnUiThread(() ->
         webView.evaluateJavascript(
             "try{__VIDRESCB(" + width + "," + height + ");}catch(e){}", null)));
@@ -931,12 +930,12 @@ public class AnimeView extends WebViewClient {
         sysheightStat = px2dp(resources.getDimensionPixelSize(statId));
       }
     }
-    Log.d(_TAG, "SYS-BAR Size: " + sysheightStat + " / " + sysheightNav);
+    ALog.d(_TAG, "SYS-BAR Size: " + sysheightStat + " / " + sysheightNav);
   }
 
   @Override
   public void onPageFinished(WebView view, String url) {
-    Log.d(_TAG, "ATVLOG-API --> " + url);
+    ALog.d(_TAG, "ATVLOG-API --> " + url);
     splash.setVisibility(View.GONE);
     videoLayout.setVisibility(View.VISIBLE);
     webView.setVisibility(View.VISIBLE);
@@ -952,7 +951,7 @@ public class AnimeView extends WebViewClient {
   @Override
   public boolean onRenderProcessGone(WebView view,
       android.webkit.RenderProcessGoneDetail detail) {
-    Log.e(_TAG, "WebView render process gone (crash=" +
+    ALog.e(_TAG, "WebView render process gone (crash=" +
         (Build.VERSION.SDK_INT >= 26 && detail.didCrash()) + ")");
     if (Build.VERSION.SDK_INT < 26) {
       return false;
@@ -998,7 +997,7 @@ public class AnimeView extends WebViewClient {
 
   /** Envoie un evenement de recherche vocale au JS. */
   public void voiceSearchCallback(String text, int status) {
-    Log.d(_TAG, "Voice Search (" + status + "): " + text);
+    ALog.d(_TAG, "Voice Search (" + status + "): " + text);
     activity.runOnUiThread(() -> {
       try {
         JSONObject json = new JSONObject("{}");
@@ -1070,6 +1069,14 @@ public class AnimeView extends WebViewClient {
    * ------------------------------------------------------------------ */
 
   private class AnimeWebChromeClient extends WebChromeClient {
+    /** Capture les console.log JS (SUBFALLBACK, etc.) dans AppLog. */
+    @Override
+    public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+      AppLog.add("JS", consoleMessage.message() + " (" +
+          consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + ")");
+      return true;
+    }
+
     @Override
     public android.graphics.Bitmap getDefaultVideoPoster() {
       /* Bitmap noir 1x1 pour eviter le damier par defaut */
@@ -1153,7 +1160,7 @@ public class AnimeView extends WebViewClient {
 
     /* Animekai : bloque les challenges Cloudflare hors frame principal */
     if (host.contains("animekai.bz") && !request.isForMainFrame()) {
-      Log.d(_TAG, "ANIMEKAI REQUEST :: " + url);
+      ALog.d(_TAG, "ANIMEKAI REQUEST :: " + url);
       if (path.contains("manifest") || path.contains("/challenge-platform/")) {
         return aApi.badRequest;
       }
@@ -1183,7 +1190,7 @@ public class AnimeView extends WebViewClient {
     if (!path.startsWith("/__proxy/")) {
       /* Injection du script megaup dans jquery (source AnimeKai) */
       if (url.contains("/jquery.min.js") && Conf.SOURCE_DOMAIN == 1) {
-        Log.d(_TAG, "ANIMEKAI REQUEST JQUERY REQUEST " + url);
+        ALog.d(_TAG, "ANIMEKAI REQUEST JQUERY REQUEST " + url);
         return AnimeApi.defaultRequest(request,
             aApi.assetsString("inject/megaup.js"), "inject-html", null);
       }
@@ -1246,7 +1253,7 @@ public class AnimeView extends WebViewClient {
             cachedSourcesJson = cacheValue;
           } catch (Exception ignored) {
           }
-          Log.d(_TAG, "CACHE VALUE =" + cacheValue);
+          ALog.d(_TAG, "CACHE VALUE =" + cacheValue);
           response.setData(new ByteArrayInputStream(
               cacheValue.getBytes(StandardCharsets.UTF_8)));
         }
@@ -1273,7 +1280,7 @@ public class AnimeView extends WebViewClient {
           return new WebResourceResponse(http.ctype[0], http.ctype[1],
               new ByteArrayInputStream(http.body.toByteArray()));
         } catch (Exception e) {
-          Log.e(_TAG, "AFLIX-API ERR =" + url, e);
+          ALog.e(_TAG, "AFLIX-API ERR =" + url, e);
           return super.shouldInterceptRequest(view, request);
         }
       }
@@ -1286,11 +1293,11 @@ public class AnimeView extends WebViewClient {
             url.startsWith("https://" + host + "/assets/mcloud/min/embed.js");
         if (!accept.startsWith("text/html") && !isEmbedJs) {
           if (accept.startsWith("text/css") || accept.startsWith("image/")) {
-            Log.d(_TAG, "BLOCK CSS/IMG = " + url);
+            ALog.d(_TAG, "BLOCK CSS/IMG = " + url);
             return aApi.badRequest;
           }
         }
-        Log.d(_TAG, "VIEW PLAYER REQ = " + url);
+        ALog.d(_TAG, "VIEW PLAYER REQ = " + url);
         try {
           AnimeApi.Http http = new AnimeApi.Http(url);
           for (Map.Entry<String, String> header :
@@ -1322,7 +1329,7 @@ public class AnimeView extends WebViewClient {
       /* mp4upload : convertit video.mp4 en reponse sources JSON */
       String sourcesJson = "{}";
       if (host.contains("mp4upload.com") && url.endsWith("video.mp4")) {
-        Log.d(_TAG, "GOT-MASTER-M3U8 mp4upload = " + url);
+        ALog.d(_TAG, "GOT-MASTER-M3U8 mp4upload = " + url);
         sourcesJson = buildSourcesJson(url);
         sendM3U8Callback(sourcesJson);
       } else {
@@ -1354,7 +1361,7 @@ public class AnimeView extends WebViewClient {
         /* master.m3u8 (sources 3/4) : envoie l'URL au JS */
         if ((Conf.SOURCE_DOMAIN == 3 || Conf.SOURCE_DOMAIN == 4) &&
             path.endsWith("/master.m3u8")) {
-          Log.d(_TAG, "GOT-MASTER-M3U8 = " + url);
+          ALog.d(_TAG, "GOT-MASTER-M3U8 = " + url);
           sourcesJson = buildSourcesJson(url);
           sendM3U8Callback(sourcesJson);
           return aApi.badRequest;
@@ -1389,7 +1396,7 @@ public class AnimeView extends WebViewClient {
       String fixDomain = request.getRequestHeaders().get("X-Fixdomain-Prox");
       if (!Conf.SOURCE_DOMAIN_USED.isEmpty() && fixDomain == null) {
         targetUrl = targetUrl.replace("://" + host, "://" + Conf.SOURCE_DOMAIN_USED);
-        Log.d(_TAG, "CH-PROXY: " + targetUrl);
+        ALog.d(_TAG, "CH-PROXY: " + targetUrl);
       }
 
       String method = request.getMethod();
@@ -1415,7 +1422,7 @@ public class AnimeView extends WebViewClient {
       boolean hasPostBodyHeader = false;
       if (isPost) {
         if (postBodyHeader != null) {
-          Log.d(_TAG, "PROXY-" + actualMethod + " POSTBODY = " + targetUrl +
+          ALog.d(_TAG, "PROXY-" + actualMethod + " POSTBODY = " + targetUrl +
               " >> " + postBodyHeader);
           hasPostBodyHeader = true;
         } else {
@@ -1425,10 +1432,10 @@ public class AnimeView extends WebViewClient {
           if (isPostProx) {
             postBody = URLDecoder.decode(postBody, "UTF-8");
           }
-          Log.d(_TAG, "PROXY-" + actualMethod + ": " + targetUrl + " >> " + postBody);
+          ALog.d(_TAG, "PROXY-" + actualMethod + ": " + targetUrl + " >> " + postBody);
         }
       } else {
-        Log.d(_TAG, "PROXY-" + actualMethod + " = " + targetUrl);
+        ALog.d(_TAG, "PROXY-" + actualMethod + " = " + targetUrl);
       }
 
       String orgProx = request.getRequestHeaders().get("X-Org-Prox");
@@ -1520,7 +1527,7 @@ public class AnimeView extends WebViewClient {
 
   /** Envoie l'URL du flux au JS (__M3U8CB). */
   private void sendM3U8Callback(String json) {
-    Log.d(_TAG, "sendM3U8Req = " + json);
+    ALog.d(_TAG, "sendM3U8Req = " + json);
     AppExecutors.execute(() ->
         activity.runOnUiThread(() ->
             webView.evaluateJavascript("__M3U8CB(" + json + ");", null)));
@@ -1653,6 +1660,11 @@ public class AnimeView extends WebViewClient {
     }
 
     @JavascriptInterface
+    public void showLogs() {
+      activity.runOnUiThread(() -> AppLog.showDialog(activity));
+    }
+
+    @JavascriptInterface
     public boolean getHaveTouchscreen() {
       return activity.getPackageManager()
           .hasSystemFeature("android.hardware.touchscreen");
@@ -1727,7 +1739,7 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public void setSdomain(String domain) {
       Conf.SOURCE_DOMAIN_USED = domain;
-      Log.d(_TAG, "Change Source Domain: " + domain);
+      ALog.d(_TAG, "Change Source Domain: " + domain);
     }
 
     @JavascriptInterface
@@ -1737,13 +1749,13 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void setStreamType(int type, int clean) {
-      Log.d(_TAG, "[X] setStreamType = " + type + " / clean=" + clean);
+      ALog.d(_TAG, "[X] setStreamType = " + type + " / clean=" + clean);
       Conf.STREAM_TYPE = type;
     }
 
     @JavascriptInterface
     public void setStreamServer(int mirror, int clean) {
-      Log.d(_TAG, "[X] setStreamServer = " + mirror + " / clean=" + clean);
+      ALog.d(_TAG, "[X] setStreamServer = " + mirror + " / clean=" + clean);
     }
 
     @JavascriptInterface
@@ -1884,7 +1896,7 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void showIme(boolean show) {
-      Log.d(_TAG, "SHOW IME = " + show);
+      ALog.d(_TAG, "SHOW IME = " + show);
       activity.runOnUiThread(() -> {
         android.view.inputmethod.InputMethodManager imm =
             (android.view.inputmethod.InputMethodManager)
@@ -1950,7 +1962,7 @@ public class AnimeView extends WebViewClient {
       pnUri = uri;
       pnTip = tip;
       pnSd = sd;
-      Log.d(_TAG, "Update Meta (" + uri + "; " + title + "; " + desc + "; " +
+      ALog.d(_TAG, "Update Meta (" + uri + "; " + title + "; " + desc + "; " +
           tip + "; " + sd + "; Poster=" + poster + ")");
     }
 
@@ -1971,10 +1983,10 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public boolean haveMic(boolean checkSpeech) {
       if (SpeechRecognizer.isRecognitionAvailable(activity)) {
-        Log.d(_TAG, "Speech available");
+        ALog.d(_TAG, "Speech available");
         return true;
       }
-      Log.d(_TAG, "Speech not available");
+      ALog.d(_TAG, "Speech not available");
       return false;
     }
 
@@ -1992,7 +2004,7 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void videoSetUrl(String url) {
-      Log.d(_TAG, "Video Set URL = " + url);
+      ALog.d(_TAG, "Video Set URL = " + url);
       videoIsPlaying = false;
       videoDuration = 0;
       videoPosition = 0;
@@ -2103,7 +2115,7 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public void videoTracks() {
-      Log.d(_TAG, "Tracks = " + videoPlayer.getCurrentTracks());
+      ALog.d(_TAG, "Tracks = " + videoPlayer.getCurrentTracks());
     }
 
     @JavascriptInterface
@@ -2129,7 +2141,7 @@ public class AnimeView extends WebViewClient {
       MainActivity mainActivity = (MainActivity) activity;
       mainActivity._metaHaveNext = haveNext;
       mainActivity._metaHavePrev = havePrev;
-      Log.d("ATVLOG_MEDIA", "mediaSetPrevNext=" + haveNext + " / " + havePrev);
+      ALog.d("ATVLOG_MEDIA", "mediaSetPrevNext=" + haveNext + " / " + havePrev);
       mainActivity.updateMediaState();
     }
 
@@ -2139,7 +2151,7 @@ public class AnimeView extends WebViewClient {
       mainActivity._metaTitle = title;
       mainActivity._metaArtist = artist;
       mainActivity._metaUrl = poster;
-      Log.d("ATVLOG_MEDIA", "mediaSetMeta=" + title);
+      ALog.d("ATVLOG_MEDIA", "mediaSetMeta=" + title);
       mainActivity.updateMediaMeta();
     }
   }

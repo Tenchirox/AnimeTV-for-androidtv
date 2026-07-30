@@ -10879,6 +10879,11 @@ const pb={
           subfallback.config();
         }
       }
+      else if (key=='viewlogs'){
+        if (home.onsettings){
+          _JSAPI.showLogs();
+        }
+      }
       else if (key=="miruroprovider"){
         var prev_provider = miruro.provider;
         miruro.beforeChangeSource(function(v){
@@ -16691,6 +16696,14 @@ const home={
             },
             home.settings.about.P,
             "<c>subtitles</c> OpenSubtitles API Key"
+          );
+
+          home.settings.tools._s_viewlogs=$n(
+            'div','',{
+              action:'*viewlogs'
+            },
+            home.settings.about.P,
+            "<c>receipt_long</c> View Logs"
           );
         }
       }

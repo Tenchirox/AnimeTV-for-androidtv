@@ -10,7 +10,6 @@ import android.media.session.PlaybackState;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.Window;
@@ -280,13 +279,13 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     public void onPause() {
-      Log.d(_TAG_MEDIA, "MEDIA-SESSION ONPAUSE");
+      ALog.d(_TAG_MEDIA, "MEDIA-SESSION ONPAUSE");
       mediaExec("pause", 0);
     }
 
     @Override
     public void onPlay() {
-      Log.d(_TAG_MEDIA, "MEDIA-SESSION ONPLAY");
+      ALog.d(_TAG_MEDIA, "MEDIA-SESSION ONPLAY");
       mediaExec("play", 0);
     }
 
@@ -331,13 +330,13 @@ public class MainActivity extends FragmentActivity {
         WindowManager.LayoutParams attributes = window.getAttributes();
         Display.Mode[] supportedModes = getDisplay().getSupportedModes();
         Display.Mode currentMode = getDisplay().getMode();
-        Log.d(_TAG, "Current Mode " + currentMode.getModeId() + " : " +
+        ALog.d(_TAG, "Current Mode " + currentMode.getModeId() + " : " +
             currentMode.getPhysicalWidth() + "x" + currentMode.getPhysicalHeight() +
             "@" + currentMode.getRefreshRate() + "hz");
         float maxRefreshRate = 60.0f;
         int bestModeId = -1;
         for (Display.Mode mode : supportedModes) {
-          Log.d(_TAG, "Mode " + mode.getModeId() + " : " +
+          ALog.d(_TAG, "Mode " + mode.getModeId() + " : " +
               mode.getPhysicalWidth() + "x" + mode.getPhysicalHeight() + "@" +
               mode.getRefreshRate() + "hz");
           if (currentMode.getPhysicalHeight() == mode.getPhysicalHeight() &&
@@ -350,12 +349,12 @@ public class MainActivity extends FragmentActivity {
         if (bestModeId > -1) {
           attributes.preferredDisplayModeId = bestModeId;
           window.setAttributes(attributes);
-          Log.d(_TAG, "Max Mode Value : " + maxRefreshRate + "hz");
+          ALog.d(_TAG, "Max Mode Value : " + maxRefreshRate + "hz");
         }
       }
-      Log.d(_TAG, "Have Touch Screen");
+      ALog.d(_TAG, "Have Touch Screen");
     } else {
-      Log.d(_TAG, "No Touch Screen");
+      ALog.d(_TAG, "No Touch Screen");
     }
   }
 
@@ -416,6 +415,9 @@ public class MainActivity extends FragmentActivity {
     initMediaSession();
     updateInstance(savedInstanceState);
 
+    AppLog.add("APP", "Start " + BuildConfig.VERSION_NAME + " (" +
+        BuildConfig.VERSION_CODE + ") flavor=" + BuildConfig.FLAVOR +
+        " sdk=" + Build.VERSION.SDK_INT);
     aView = new AnimeView(this);
   }
 

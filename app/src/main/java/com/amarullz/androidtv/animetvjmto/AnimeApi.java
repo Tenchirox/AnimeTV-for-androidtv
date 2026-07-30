@@ -8,7 +8,6 @@ import android.content.SharedPreferences;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.net.http.SslError;
-import android.util.Log;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -84,7 +83,7 @@ public class AnimeApi extends WebViewClient {
   public AnimeApi(Activity mainActivity) {
     activity = mainActivity;
     cacheDir = mainActivity.getCacheDir().getAbsolutePath();
-    Log.d(_TAG, "Cache Dir = " + cacheDir);
+    ALog.d(_TAG, "Cache Dir = " + cacheDir);
     initHttpEngine(mainActivity);
     AppExecutors.execute(() -> {
       updateServerVar(false);
@@ -118,7 +117,7 @@ public class AnimeApi extends WebViewClient {
     String url = uri.toString();
     if (changeDomain != null) {
       url = url.replace("://" + uri.getHost(), "://" + changeDomain);
-      Log.d(_TAG, "CH-DOMAIN: " + url);
+      ALog.d(_TAG, "CH-DOMAIN: " + url);
     }
     try {
       Http http = new Http(url);
@@ -150,7 +149,7 @@ public class AnimeApi extends WebViewClient {
       return new WebResourceResponse(http.ctype[0], http.ctype[1],
           new ByteArrayInputStream(http.body.toByteArray()));
     } catch (Exception e) {
-      Log.e(_TAG, "defaultRequest ERR =" + url, e);
+      ALog.e(_TAG, "defaultRequest ERR =" + url, e);
       return null;
     }
   }
@@ -190,7 +189,7 @@ public class AnimeApi extends WebViewClient {
             .addQuicHint("megaf.cc", 443, 443)
             .build();
       } catch (Exception e) {
-        Log.e(_TAG, "Cronet Init Error", e);
+        ALog.e(_TAG, "Cronet Init Error", e);
         cronetClient = null;
       }
     }
@@ -250,7 +249,7 @@ public class AnimeApi extends WebViewClient {
       buffer.reset();
       buffer.write(bytes, 0, bytes.length);
     } catch (Exception e) {
-      Log.e(_TAG, "Error replacing text: " + e.getMessage());
+      ALog.e(_TAG, "Error replacing text: " + e.getMessage());
     }
   }
 
@@ -262,7 +261,7 @@ public class AnimeApi extends WebViewClient {
   public WebResourceResponse assetsRequest(String fn) {
     String mime;
     try {
-      Log.d(_TAG, "ASSETS=" + fn);
+      ALog.d(_TAG, "ASSETS=" + fn);
       int dot = fn.lastIndexOf(".");
       if (dot >= 0) {
         switch (fn.substring(dot)) {
@@ -333,14 +332,14 @@ public class AnimeApi extends WebViewClient {
     /* Normalise la source (morte -> defaut, doublon Aniwatch 4 -> 3) */
     int normalized = Conf.normalizeSource(Conf.SOURCE_DOMAIN);
     if (normalized != Conf.SOURCE_DOMAIN) {
-      Log.d(_TAG, "Source " + Conf.SOURCE_DOMAIN + " -> " + normalized);
+      ALog.d(_TAG, "Source " + Conf.SOURCE_DOMAIN + " -> " + normalized);
       Conf.SOURCE_DOMAIN = normalized;
     }
     Conf.CACHE_SIZE_MB = pref.getInt("cache-size", Conf.CACHE_SIZE_MB);
     /* Applique la config domaines distante memorisee (si presente) */
     applyDomainConfig(pref.getString("domain-json", ""));
     Conf.updateSource(Conf.SOURCE_DOMAIN);
-    Log.d(_TAG, "DOMAIN = " + Conf.getDomain() + " / STREAM = " + Conf.STREAM_DOMAIN +
+    ALog.d(_TAG, "DOMAIN = " + Conf.getDomain() + " / STREAM = " + Conf.STREAM_DOMAIN +
         " / UPDATE = " + Conf.SERVER_VER + " / Source-ID: " + Conf.SOURCE_DOMAIN);
   }
 
@@ -362,12 +361,12 @@ public class AnimeApi extends WebViewClient {
         SharedPreferences.Editor ed = pref.edit();
         ed.putString("domain-json", json);
         ed.apply();
-        Log.d(_TAG, "DOMAIN-CONFIG UPDATED: " + json);
+        ALog.d(_TAG, "DOMAIN-CONFIG UPDATED: " + json);
       } else {
-        Log.d(_TAG, "DOMAIN-CONFIG UP TO DATE");
+        ALog.d(_TAG, "DOMAIN-CONFIG UP TO DATE");
       }
     } catch (Exception e) {
-      Log.d(_TAG, "DOMAIN-CONFIG ERR: " + e);
+      ALog.d(_TAG, "DOMAIN-CONFIG ERR: " + e);
     }
   }
 
@@ -399,7 +398,7 @@ public class AnimeApi extends WebViewClient {
         Conf.SOURCE_DOMAINS[i] = newDomains[i];
       }
       Conf.updateSource(Conf.SOURCE_DOMAIN);
-      Log.d(_TAG, "DOMAIN-CONFIG APPLIED: " + Conf.getDomain());
+      ALog.d(_TAG, "DOMAIN-CONFIG APPLIED: " + Conf.getDomain());
       return true;
     } catch (Exception e) {
       return false;
@@ -427,7 +426,7 @@ public class AnimeApi extends WebViewClient {
     }
     Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE);
     install.setData(apkUri);
-    Log.d(_TAG, "INSTALLING APK = " + apkUri);
+    ALog.d(_TAG, "INSTALLING APK = " + apkUri);
     install.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
     activity.startActivity(install);
   }
@@ -454,12 +453,12 @@ public class AnimeApi extends WebViewClient {
     AppExecutors.execute(new Runnable() {
       @Override
       public void run() {
-        Log.d(_TAG, "DOWNLOADING APK = " + url);
+        ALog.d(_TAG, "DOWNLOADING APK = " + url);
         try {
           Http http = new Http(url);
           http.execute();
           int sizeMb = http.body.size() / (1024 * 1024);
-          Log.d(_TAG, "APK DOWNLOADED = " + sizeMb + "MB");
+          ALog.d(_TAG, "APK DOWNLOADED = " + sizeMb + "MB");
           File fp = new File(apkTempFile());
           FileOutputStream fos = new FileOutputStream(fp);
           http.body.writeTo(fos);
@@ -470,7 +469,7 @@ public class AnimeApi extends WebViewClient {
           if (expectedSha256 != null && !expectedSha256.isEmpty()) {
             String actual = sha256File(fp);
             if (!expectedSha256.equalsIgnoreCase(actual)) {
-              Log.e(_TAG, "APK HASH MISMATCH: expected=" + expectedSha256 +
+              ALog.e(_TAG, "APK HASH MISMATCH: expected=" + expectedSha256 +
                   " actual=" + actual);
               fp.delete();
               updateIsInProgress = false;
@@ -480,7 +479,7 @@ public class AnimeApi extends WebViewClient {
                   Toast.LENGTH_LONG).show());
               return;
             }
-            Log.d(_TAG, "APK HASH OK = " + actual);
+            ALog.d(_TAG, "APK HASH OK = " + actual);
           }
 
           int finalSizeMb = sizeMb;
@@ -493,7 +492,7 @@ public class AnimeApi extends WebViewClient {
           activity.runOnUiThread(() -> Toast.makeText(activity,
               "Download " + (isNightly ? "Nightly " : "") + "Update Failed: " +
                   e.toString(), Toast.LENGTH_LONG).show());
-          Log.d(_TAG, "DOWNLOAD ERR: " + e);
+          ALog.d(_TAG, "DOWNLOAD ERR: " + e);
           updateIsInProgress = false;
         }
       }
@@ -559,9 +558,9 @@ public class AnimeApi extends WebViewClient {
       try {
         File fp = new File(apkTempFile());
         if (fp.delete()) {
-          Log.d(_TAG, "TEMP APK FILE DELETED");
+          ALog.d(_TAG, "TEMP APK FILE DELETED");
         } else {
-          Log.d(_TAG, "NO TEMP APK FILE");
+          ALog.d(_TAG, "NO TEMP APK FILE");
         }
       } catch (Exception ignored) {
       }
@@ -576,14 +575,14 @@ public class AnimeApi extends WebViewClient {
 
         /* Met a jour la "version serveur" affichee dans l'UI (dnsver) */
         if (!tagName.isEmpty() && !Conf.SERVER_VER.equals(tagName)) {
-          Log.d(_TAG, "SERVER-UPDATED: " + tagName);
+          ALog.d(_TAG, "SERVER-UPDATED: " + tagName);
           SharedPreferences.Editor ed = pref.edit();
           ed.putString("server-json",
               new JSONObject().put("update", tagName).toString());
           ed.apply();
           initPref();
         } else {
-          Log.d(_TAG, "SERVER UP TO DATE");
+          ALog.d(_TAG, "SERVER UP TO DATE");
         }
 
         /* Nouvelle version de l'application ? */
@@ -614,16 +613,16 @@ public class AnimeApi extends WebViewClient {
             }
           }
           if (apkUrl == null) {
-            Log.d(_TAG, "NO APK ASSET IN RELEASE " + tagName);
+            ALog.d(_TAG, "NO APK ASSET IN RELEASE " + tagName);
             return;
           }
-          Log.d(_TAG, "NEW APK VERSION AVAILABLE: " + tagName);
+          ALog.d(_TAG, "NEW APK VERSION AVAILABLE: " + tagName);
           final String appurl = apkUrl;
           final String appver = tagName;
           final String appnote = release.optString("body", "");
           final String appsize = VersionUtils.formatSize(apkSize);
           final String appsha = apkSha256;
-          Log.d(_TAG, "showUpdateDialog = " + appver + " / " + appsize + " / " +
+          ALog.d(_TAG, "showUpdateDialog = " + appver + " / " + appsize + " / " +
               appurl);
           boolean updateState = pref.getBoolean("update-disable", false);
           if (!updateState || showMessage) {
@@ -639,10 +638,10 @@ public class AnimeApi extends WebViewClient {
             activity.runOnUiThread(() -> Toast.makeText(activity,
                 "AnimeTV already up to date...", Toast.LENGTH_SHORT).show());
           }
-          Log.d(_TAG, "APP UP TO DATE");
+          ALog.d(_TAG, "APP UP TO DATE");
         }
       } catch (Exception e) {
-        Log.d(_TAG, "UPDATE CHECK ERR: " + e);
+        ALog.d(_TAG, "UPDATE CHECK ERR: " + e);
       }
     });
   }
@@ -705,7 +704,7 @@ public class AnimeApi extends WebViewClient {
       }
       if (name.equalsIgnoreCase("Pragma") && val.equalsIgnoreCase("no-cache")) {
         nocache = true;
-        Log.d(_TAG, "HTTP-Request no cache");
+        ALog.d(_TAG, "HTTP-Request no cache");
       }
       if (req != null) {
         req.addHeader(name, val);
