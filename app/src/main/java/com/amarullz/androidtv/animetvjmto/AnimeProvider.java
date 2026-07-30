@@ -110,9 +110,16 @@ public class AnimeProvider {
    * Job de rafraichissement
    * ------------------------------------------------------------------ */
 
+  /** @return true si l'appareil a un TvProvider (Android TV). */
+  private static boolean hasTvProvider(Context context) {
+    return context.getPackageManager()
+        .hasSystemFeature("android.software.leanback");
+  }
+
   /** Met a jour les 3 chaines puis replanifie le job periodique. */
   public static void executeJob(Context context) {
-    if (Build.VERSION.SDK_INT < 29) {
+    if (Build.VERSION.SDK_INT < 29 || !hasTvProvider(context)) {
+      /* Pas de TvProvider (telephone/tablette) : rien a publier */
       return;
     }
 
@@ -151,6 +158,9 @@ public class AnimeProvider {
 
   /** Planifie le job periodique de mise a jour des chaines (toutes les heures). */
   public static void scheduleJob(Context context) {
+    if (!hasTvProvider(context)) {
+      return;
+    }
     ALog.d(_TAG, "SCHEDULING JOB");
     JobInfo.Builder builder = new JobInfo.Builder(0,
         new ComponentName(context, ChannelService.class));
