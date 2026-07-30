@@ -46,29 +46,41 @@ public class AnimeProvider {
 
   private static final String ANILIST_API = "https://graphql.anilist.co/";
 
-  /* Requete AniList : episodes recemment diffuses (0xFFFFFF = timestamp actuel) */
-  private static final String QUERY_RECENT =
-      "{\"query\":\"query ($tm: Int, $page: Int, $perPage: Int){ " +
-      "Page(page: $page, perPage: $perPage) { pageInfo { perPage hasNextPage " +
-      "currentPage } airingSchedules(airingAt_lesser:$tm,sort:TIME_DESC){ " +
-      "airingAt episode timeUntilAiring media{ id isAdult title{ romaji " +
-      "english } coverImage{ extraLarge } episodes format popularity " +
-      "averageScore } } } }\",\"variables\":{\"tm\":0xFFFFFF,\"page\":1," +
+  /* Requete AniList unique avec aliases : recent + trending + popular en 1 seul appel */
+  private static final String QUERY_ALL =
+      "{\"query\":\"query ($tm: Int, $page: Int, $perPage: Int) { " +
+      "recent: Page(page: $page, perPage: $perPage) { " +
+      "airingSchedules(airingAt_lesser:$tm,sort:TIME_DESC){ " +
+      "media{ id isAdult title{ romaji english } coverImage{ large } " +
+      "episodes format popularity averageScore } } } " +
+      "trending: Page(page: $page, perPage: $perPage) { " +
+      "media(sort:TRENDING_DESC,isAdult:false,type:ANIME,status:RELEASING) { " +
+      "id title{ romaji english } coverImage{ large } episodes format " +
+      "averageScore } } " +
+      "popular: Page(page: $page, perPage: $perPage) { " +
+      "media(sort:POPULARITY_DESC,isAdult:false,type:ANIME," +
+      "status_not_in:[HIATUS,CANCELLED,NOT_YET_RELEASED]) { " +
+      "id title{ romaji english } coverImage{ large } episodes format " +
+      "averageScore } } }\",\"variables\":{\"tm\":0xFFFFFF,\"page\":1," +
       "\"perPage\":50}}";
 
-  /* Requete AniList : tendances */
+  /* Requetes individuelles (fallback si la requete combinee echoue) */
+  private static final String QUERY_RECENT =
+      "{\"query\":\"query ($tm: Int, $page: Int, $perPage: Int){ " +
+      "Page(page: $page, perPage: $perPage) { airingSchedules(airingAt_lesser:$tm," +
+      "sort:TIME_DESC){ media{ id isAdult title{ romaji english } coverImage{ large } " +
+      "episodes format popularity averageScore } } } }\",\"variables\":" +
+      "{\"tm\":0xFFFFFF,\"page\":1,\"perPage\":50}}";
+
   private static final String QUERY_TRENDING =
       "{\"query\":\"query ($page: Int, $perPage: Int){ Page(page: $page, " +
-      "perPage: $perPage) { pageInfo { perPage hasNextPage currentPage } " +
-      "media(sort:TRENDING_DESC,isAdult:false, type: ANIME, status:RELEASING) " +
-      "{id title{ romaji english } coverImage{ large } episodes format " +
-      "averageScore } } }\",\"variables\":{\"page\":1,\"perPage\":50}}";
+      "perPage: $perPage) { media(sort:TRENDING_DESC,isAdult:false, type: ANIME, " +
+      "status:RELEASING) {id title{ romaji english } coverImage{ large } episodes " +
+      "format averageScore } } }\",\"variables\":{\"page\":1,\"perPage\":50}}";
 
-  /* Requete AniList : populaires */
   private static final String QUERY_POPULAR =
       "{\"query\":\"query ($page: Int, $perPage: Int){ Page(page: $page, " +
-      "perPage: $perPage) { pageInfo { perPage hasNextPage currentPage } " +
-      "media(sort:POPULARITY_DESC,isAdult:false, type: ANIME, " +
+      "perPage: $perPage) { media(sort:POPULARITY_DESC,isAdult:false, type: ANIME, " +
       "status_not_in:[HIATUS,CANCELLED,NOT_YET_RELEASED]) { id title{ romaji " +
       "english } coverImage{ large } episodes format averageScore } } }\"," +
       "\"variables\":{\"page\":1,\"perPage\":50}}";
@@ -95,7 +107,6 @@ public class AnimeProvider {
 
   public AnimeProvider(Context context, String channelName, String providerId) {
     ctx = context;
-    AnimeApi.initHttpEngine(context);
     long id;
     try {
       id = initChannel(channelName, providerId);
@@ -116,44 +127,87 @@ public class AnimeProvider {
         .hasSystemFeature("android.software.leanback");
   }
 
-  /** Met a jour les 3 chaines puis replanifie le job periodique. */
+  /** Met a jour les 3 chaines en 1 seule requete AniList, puis replanifie le job. */
   public static void executeJob(Context context) {
     if (Build.VERSION.SDK_INT < 29 || !hasTvProvider(context)) {
-      /* Pas de TvProvider (telephone/tablette) : rien a publier */
       return;
     }
-
-    /* Chaine "Recent" : episodes en cours de diffusion */
-    AnimeProvider recent = new AnimeProvider(context, "Recent (Beta)", "org.tenchirock.animetv");
-    if (recent.channelId >= 1) {
+    AppExecutors.execute(() -> {
       try {
-        AppExecutors.execute(() -> recent.requestRecent(new ChannelCallback(recent)));
-      } catch (Exception ignored) {
-      }
-    }
+        /* 1 seule requete GraphQL avec aliases recent/trending/popular */
+        AnimeApi.Http http = new AnimeApi.Http(ANILIST_API);
+        http.addHeader("Accept", "application/json");
+        String body = QUERY_ALL.replace("0xFFFFFF",
+            (System.currentTimeMillis() / 1000) + "");
+        http.setMethod("POST", body, "application/json");
+        http.execute();
+        JSONObject data = new JSONObject(http.body.toString()).getJSONObject("data");
 
-    /* Chaine "Trending" */
+        /* Recent */
+        AnimeProvider recent =
+            new AnimeProvider(context, "Recent (Beta)", "org.tenchirock.animetv");
+        if (recent.channelId >= 1) {
+          JSONArray recentResult = new JSONArray("[]");
+          try {
+            JSONArray schedules = data.getJSONObject("recent")
+                .getJSONArray("airingSchedules");
+            parseAiringSchedulesStatic(recentResult, schedules);
+          } catch (Exception ignored) {
+          }
+          new ChannelCallback(recent).onFinish(recentResult.toString());
+        }
+
+        /* Trending */
+        AnimeProvider trending =
+            new AnimeProvider(context, "Trending (Beta)", "org.tenchirock.animetv.trending");
+        if (trending.channelId >= 1) {
+          JSONArray trendingResult = new JSONArray("[]");
+          try {
+            parseMediaListStatic(trendingResult,
+                data.getJSONObject("trending").getJSONArray("media"));
+          } catch (Exception ignored) {
+          }
+          new ChannelCallback(trending).onFinish(trendingResult.toString());
+        }
+
+        /* Popular */
+        AnimeProvider popular =
+            new AnimeProvider(context, "Popular (Beta)", "org.tenchirock.animetv.popular");
+        if (popular.channelId >= 1) {
+          JSONArray popularResult = new JSONArray("[]");
+          try {
+            parseMediaListStatic(popularResult,
+                data.getJSONObject("popular").getJSONArray("media"));
+          } catch (Exception ignored) {
+          }
+          new ChannelCallback(popular).onFinish(popularResult.toString());
+        }
+      } catch (Exception e) {
+        ALog.e(_TAG, "Combined query failed, falling back", e);
+        /* Fallback : 3 requetes separees */
+        executeJobFallback(context);
+      }
+      scheduleJob(context);
+    });
+  }
+
+  /** Fallback : 3 requetes separees si la combinee echoue. */
+  private static void executeJobFallback(Context context) {
+    AnimeProvider recent =
+        new AnimeProvider(context, "Recent (Beta)", "org.tenchirock.animetv");
+    if (recent.channelId >= 1) {
+      recent.requestRecent(new ChannelCallback(recent));
+    }
     AnimeProvider trending =
         new AnimeProvider(context, "Trending (Beta)", "org.tenchirock.animetv.trending");
     if (trending.channelId >= 1) {
-      try {
-        AppExecutors.execute(() ->
-            trending.requestQuery(QUERY_TRENDING, new ChannelCallback(trending)));
-      } catch (Exception ignored) {
-      }
+      trending.requestQuery(QUERY_TRENDING, new ChannelCallback(trending));
     }
-
-    /* Chaine "Popular" */
-    AnimeProvider popular = new AnimeProvider(context, "Popular (Beta)", "org.tenchirock.animetv.popular");
+    AnimeProvider popular =
+        new AnimeProvider(context, "Popular (Beta)", "org.tenchirock.animetv.popular");
     if (popular.channelId >= 1) {
-      try {
-        AppExecutors.execute(() ->
-            popular.requestQuery(QUERY_POPULAR, new ChannelCallback(popular)));
-      } catch (Exception ignored) {
-      }
+      popular.requestQuery(QUERY_POPULAR, new ChannelCallback(popular));
     }
-
-    scheduleJob(context);
   }
 
   /** Planifie le job periodique de mise a jour des chaines (toutes les heures). */
@@ -248,41 +302,46 @@ public class AnimeProvider {
     try {
       JSONArray media = new JSONObject(body)
           .getJSONObject("data").getJSONObject("Page").getJSONArray("media");
-      List<JSONObject> list = new ArrayList<>();
-      for (int i = 0; i < media.length(); i++) {
-        try {
-          JSONObject anime = media.getJSONObject(i);
-          JSONObject title = anime.getJSONObject("title");
-          String titleEnglish = title.isNull("english") ? "" : title.getString("english");
-          String titleRomaji = title.isNull("romaji") ? "" : title.getString("romaji");
-          String poster = anime.getJSONObject("coverImage").getString("large");
-          String format = anime.isNull("format") ? "" : anime.getString("format");
-          int episodes = anime.isNull("episodes") ? 0 : anime.getInt("episodes");
-          int score = anime.isNull("averageScore") ? 0 : anime.getInt("averageScore");
-          long id = anime.getLong("id");
-
-          JSONObject item = new JSONObject("{}");
-          item.put("url", id + "/" + episodes);
-          item.put("title", titleEnglish.isEmpty() ? titleRomaji : titleEnglish);
-          item.put("poster", poster);
-          StringBuilder ep = new StringBuilder();
-          if (format.equals("MOVIE") || episodes == 0) {
-            ep.append("Score: ").append(score);
-          } else {
-            ep.append(episodes).append("  Episodes  |  Score: ").append(score);
-          }
-          ep.append("  |  ").append(format);
-          item.put("ep", ep.toString());
-          item.put("type", format);
-          item.put("tip", id);
-          list.add(item);
-        } catch (JSONException ignored) {
-        }
-      }
-      for (JSONObject item : list) {
-        out.put(item);
-      }
+      parseMediaListStatic(out, media);
     } catch (JSONException ignored) {
+    }
+  }
+
+  /** Parse un tableau media directement (pour requete combinee). */
+  private static void parseMediaListStatic(JSONArray out, JSONArray media) {
+    List<JSONObject> list = new ArrayList<>();
+    for (int i = 0; i < media.length(); i++) {
+      try {
+        JSONObject anime = media.getJSONObject(i);
+        JSONObject title = anime.getJSONObject("title");
+        String titleEnglish = title.isNull("english") ? "" : title.getString("english");
+        String titleRomaji = title.isNull("romaji") ? "" : title.getString("romaji");
+        String poster = anime.getJSONObject("coverImage").getString("large");
+        String format = anime.isNull("format") ? "" : anime.getString("format");
+        int episodes = anime.isNull("episodes") ? 0 : anime.getInt("episodes");
+        int score = anime.isNull("averageScore") ? 0 : anime.getInt("averageScore");
+        long id = anime.getLong("id");
+
+        JSONObject item = new JSONObject("{}");
+        item.put("url", id + "/" + episodes);
+        item.put("title", titleEnglish.isEmpty() ? titleRomaji : titleEnglish);
+        item.put("poster", poster);
+        StringBuilder ep = new StringBuilder();
+        if (format.equals("MOVIE") || episodes == 0) {
+          ep.append("Score: ").append(score);
+        } else {
+          ep.append(episodes).append("  Episodes  |  Score: ").append(score);
+        }
+        ep.append("  |  ").append(format);
+        item.put("ep", ep.toString());
+        item.put("type", format);
+        item.put("tip", id);
+        list.add(item);
+      } catch (JSONException ignored) {
+      }
+    }
+    for (JSONObject item : list) {
+      out.put(item);
     }
   }
 
@@ -291,57 +350,61 @@ public class AnimeProvider {
     try {
       JSONArray schedules = new JSONObject(body)
           .getJSONObject("data").getJSONObject("Page").getJSONArray("airingSchedules");
-      List<JSONObject> list = new ArrayList<>();
-      for (int i = 0; i < schedules.length(); i++) {
-        try {
-          JSONObject anime = schedules.getJSONObject(i).getJSONObject("media");
-          if (anime.getBoolean("isAdult")) {
-            continue;
-          }
-          JSONObject title = anime.getJSONObject("title");
-          String titleEnglish = title.isNull("english") ? "" : title.getString("english");
-          String titleRomaji = title.isNull("romaji") ? "" : title.getString("romaji");
-          String poster = anime.getJSONObject("coverImage").getString("extraLarge");
-          String format = anime.isNull("format") ? "" : anime.getString("format");
-          if (format.equalsIgnoreCase("TV_SHORT")) {
-            format = "TV";
-          }
-          int episodes = anime.isNull("episodes") ? 0 : anime.getInt("episodes");
-          long id = anime.getLong("id");
-          int popularity = anime.isNull("popularity") ? 0 : anime.getInt("popularity");
-          int score = anime.isNull("averageScore") ? 0 : anime.getInt("averageScore");
-
-          JSONObject item = new JSONObject("{}");
-          item.put("url", id + "/" + episodes);
-          item.put("title", titleEnglish.isEmpty() ? titleRomaji : titleEnglish);
-          item.put("poster", poster);
-          StringBuilder ep = new StringBuilder();
-          if (format.equals("MOVIE") || episodes == 0) {
-            ep.append("Score: ").append(score);
-          } else {
-            ep.append(episodes).append("  Episodes  |  Score: ").append(score);
-          }
-          ep.append("  |  ").append(format);
-          item.put("ep", ep.toString());
-          item.put("type", format);
-          item.put("tip", id);
-          item.put("popularity", popularity);
-          list.add(item);
-        } catch (JSONException ignored) {
-        }
-      }
-      /* Tri par popularite decroissante */
-      Collections.sort(list, (a, b) -> {
-        try {
-          return Integer.compare(b.getInt("popularity"), a.getInt("popularity"));
-        } catch (JSONException e) {
-          return 0;
-        }
-      });
-      for (JSONObject item : list) {
-        out.put(item);
-      }
+      parseAiringSchedulesStatic(out, schedules);
     } catch (JSONException ignored) {
+    }
+  }
+
+  /** Parse un tableau d'airingSchedules directement (pour requete combinee). */
+  private static void parseAiringSchedulesStatic(JSONArray out, JSONArray schedules) {
+    List<JSONObject> list = new ArrayList<>();
+    for (int i = 0; i < schedules.length(); i++) {
+      try {
+        JSONObject anime = schedules.getJSONObject(i).getJSONObject("media");
+        if (anime.getBoolean("isAdult")) {
+          continue;
+        }
+        JSONObject title = anime.getJSONObject("title");
+        String titleEnglish = title.isNull("english") ? "" : title.getString("english");
+        String titleRomaji = title.isNull("romaji") ? "" : title.getString("romaji");
+        String poster = anime.getJSONObject("coverImage").getString("large");
+        String format = anime.isNull("format") ? "" : anime.getString("format");
+        if (format.equalsIgnoreCase("TV_SHORT")) {
+          format = "TV";
+        }
+        int episodes = anime.isNull("episodes") ? 0 : anime.getInt("episodes");
+        long id = anime.getLong("id");
+        int popularity = anime.isNull("popularity") ? 0 : anime.getInt("popularity");
+        int score = anime.isNull("averageScore") ? 0 : anime.getInt("averageScore");
+
+        JSONObject item = new JSONObject("{}");
+        item.put("url", id + "/" + episodes);
+        item.put("title", titleEnglish.isEmpty() ? titleRomaji : titleEnglish);
+        item.put("poster", poster);
+        StringBuilder ep = new StringBuilder();
+        if (format.equals("MOVIE") || episodes == 0) {
+          ep.append("Score: ").append(score);
+        } else {
+          ep.append(episodes).append("  Episodes  |  Score: ").append(score);
+        }
+        ep.append("  |  ").append(format);
+        item.put("ep", ep.toString());
+        item.put("type", format);
+        item.put("tip", id);
+        item.put("popularity", popularity);
+        list.add(item);
+      } catch (JSONException ignored) {
+      }
+    }
+    Collections.sort(list, (a, b) -> {
+      try {
+        return Integer.compare(b.getInt("popularity"), a.getInt("popularity"));
+      } catch (JSONException e) {
+        return 0;
+      }
+    });
+    for (JSONObject item : list) {
+      out.put(item);
     }
   }
 

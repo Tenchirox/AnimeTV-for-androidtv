@@ -158,8 +158,14 @@ public class AnimeApi extends WebViewClient {
    * Moteur HTTP (init)
    * ------------------------------------------------------------------ */
 
+  private static boolean httpEngineInitialized = false;
+
   /** (Re)initialise le moteur HTTP global (OkHttp / Cronet / DoH / cache). */
   public static void initHttpEngine(Context context) {
+    if (httpEngineInitialized && !reqClearCache) {
+      return;
+    }
+    httpEngineInitialized = true;
     long cacheSize = ((long) Conf.CACHE_SIZE_MB) * 1024 * 1024;
 
     /* Cronet (option HTTP_CLIENT == 2) */
@@ -329,23 +335,30 @@ public class AnimeApi extends WebViewClient {
 
   /** Charge les preferences "SERVER" (config distante, source, cache). */
   public void initPref() {
-    prefServer = pref.getString("server-json", "");
+    /* Lecture unique de toutes les prefs en un seul appel */
+    java.util.Map<String, ?> all = pref.getAll();
+    Object v;
+    v = all.get("server-json");
+    prefServer = v != null ? v.toString() : "";
     if (!prefServer.equals("")) {
       try {
         Conf.SERVER_VER = new JSONObject(prefServer).getString("update");
       } catch (Exception ignored) {
       }
     }
-    Conf.SOURCE_DOMAIN = pref.getInt("source-domain", Conf.SOURCE_DOMAIN);
+    v = all.get("source-domain");
+    Conf.SOURCE_DOMAIN = v instanceof Integer ? (int) v : Conf.SOURCE_DOMAIN;
     /* Normalise la source (morte -> defaut, doublon Aniwatch 4 -> 3) */
     int normalized = Conf.normalizeSource(Conf.SOURCE_DOMAIN);
     if (normalized != Conf.SOURCE_DOMAIN) {
       ALog.d(_TAG, "Source " + Conf.SOURCE_DOMAIN + " -> " + normalized);
       Conf.SOURCE_DOMAIN = normalized;
     }
-    Conf.CACHE_SIZE_MB = pref.getInt("cache-size", Conf.CACHE_SIZE_MB);
+    v = all.get("cache-size");
+    Conf.CACHE_SIZE_MB = v instanceof Integer ? (int) v : Conf.CACHE_SIZE_MB;
     /* Applique la config domaines distante memorisee (si presente) */
-    applyDomainConfig(pref.getString("domain-json", ""));
+    v = all.get("domain-json");
+    applyDomainConfig(v != null ? v.toString() : "");
     Conf.updateSource(Conf.SOURCE_DOMAIN);
     ALog.d(_TAG, "DOMAIN = " + Conf.getDomain() + " / STREAM = " + Conf.STREAM_DOMAIN +
         " / UPDATE = " + Conf.SERVER_VER + " / Source-ID: " + Conf.SOURCE_DOMAIN);
