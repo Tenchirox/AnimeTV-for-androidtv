@@ -338,11 +338,11 @@ public class AnimeView extends WebViewClient {
 
     trackSelector = new DefaultTrackSelector(activity);
 
-    /* Buffer : 10 min min/max, 2.5s pour demarrer, 5s apres rebuffer,
-     * 2 min de back-buffer */
+    /* Buffer : 30s min, 2 min max, 2.5s pour demarrer, 5s apres rebuffer,
+     * 30s de back-buffer */
     DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-        .setBufferDurationsMs(600000, 600000, 2500, 5000)
-        .setBackBuffer(120000, true)
+        .setBufferDurationsMs(30000, 120000, 2500, 5000)
+        .setBackBuffer(30000, true)
         .build();
 
     videoPlayer = new ExoPlayer.Builder(activity)
@@ -812,10 +812,12 @@ public class AnimeView extends WebViewClient {
     }
   }
 
-  /** Gere onStart (recreation du lecteur) / onPause (sauvegarde position). */
+  /** Gere onStart (reprise du lecteur) / onPause (sauvegarde position). */
   public void onStartPause(boolean isStart) {
     if (isStart) {
-      initVideoView();
+      if (videoPlayer == null) {
+        initVideoView();
+      }
       videoViewSetScale(videoStatScaleType);
       if (!videoStatCurrentUrl.equals("")) {
         videoSetSource(videoStatCurrentUrl);
@@ -829,9 +831,10 @@ public class AnimeView extends WebViewClient {
       }
       ALog.d(_TAG, "ONSTART -> " + videoStatCurrentPosition);
     } else {
-      if (videoPlayer.getDuration() > 0) {
+      if (videoPlayer != null && videoPlayer.getDuration() > 0) {
         videoStatCurrentPosition = (int) videoPlayer.getCurrentPosition();
         videoStatIsPlaying = videoPlayer.isPlaying();
+        videoPlayer.stop();
       } else {
         videoStatCurrentPosition = 0;
         videoStatIsPlaying = false;
@@ -867,9 +870,8 @@ public class AnimeView extends WebViewClient {
   /** Signale au JS que la page player embarquee a ete injectee. */
   public void sendVidpageLoaded() {
     ALog.d(_TAG, "sendVidpageLoaded --> 1");
-    AppExecutors.execute(() ->
-        activity.runOnUiThread(() ->
-            webView.evaluateJavascript("__VIDPAGELOADCB(1);", null)));
+    activity.runOnUiThread(() ->
+        webView.evaluateJavascript("__VIDPAGELOADCB(1);", null));
   }
 
   /** Plein ecran immersif (paysage) ou barres visibles (portrait). */
@@ -1077,13 +1079,17 @@ public class AnimeView extends WebViewClient {
       return true;
     }
 
+    private android.graphics.Bitmap sDefaultPoster;
+
     @Override
     public android.graphics.Bitmap getDefaultVideoPoster() {
       /* Bitmap noir 1x1 pour eviter le damier par defaut */
-      android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
-          1, 1, android.graphics.Bitmap.Config.RGB_565);
-      bitmap.eraseColor(android.graphics.Color.argb(255, 0, 0, 0));
-      return bitmap;
+      if (sDefaultPoster == null) {
+        sDefaultPoster = android.graphics.Bitmap.createBitmap(
+            1, 1, android.graphics.Bitmap.Config.RGB_565);
+        sDefaultPoster.eraseColor(android.graphics.Color.argb(255, 0, 0, 0));
+      }
+      return sDefaultPoster;
     }
 
     @Override
@@ -1539,9 +1545,8 @@ public class AnimeView extends WebViewClient {
   /** Envoie l'URL du flux au JS (__M3U8CB). */
   private void sendM3U8Callback(String json) {
     ALog.d(_TAG, "sendM3U8Req = " + json);
-    AppExecutors.execute(() ->
-        activity.runOnUiThread(() ->
-            webView.evaluateJavascript("__M3U8CB(" + json + ");", null)));
+    activity.runOnUiThread(() ->
+        webView.evaluateJavascript("__M3U8CB(" + json + ");", null));
   }
 
   @Override
@@ -1599,9 +1604,10 @@ public class AnimeView extends WebViewClient {
       try {
         byte[] digest = MessageDigest.getInstance("SHA-1")
             .digest(value.getBytes());
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(40);
         for (byte b : digest) {
-          sb.append(String.format("%02x", b));
+          sb.append(AnimeApi.HEX_DIGITS[(b >> 4) & 0xf])
+              .append(AnimeApi.HEX_DIGITS[b & 0xf]);
         }
         return sb.toString();
       } catch (Exception e) {
@@ -2048,38 +2054,31 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public boolean videoIsPlaying() {
-      runOnUiThreadWait(() -> {
-        try {
-          videoIsPlaying = videoPlayer.isPlaying();
-        } catch (Exception ignored) {
-        }
-      });
-      return videoIsPlaying;
+      try {
+        return videoPlayer.isPlaying();
+      } catch (Exception e) {
+        return false;
+      }
     }
 
     @JavascriptInterface
     public int videoGetDuration() {
-      runOnUiThreadWait(() -> {
-        try {
-          long duration = videoPlayer.getDuration();
-          /* TIME_UNSET (negatif) -> 0 au lieu d'un cast absurde */
-          videoDuration = duration > 0 ? (int) duration : 0;
-        } catch (Exception ignored) {
-        }
-      });
-      return videoDuration;
+      try {
+        long duration = videoPlayer.getDuration();
+        return duration > 0 ? (int) duration : 0;
+      } catch (Exception e) {
+        return 0;
+      }
     }
 
     @JavascriptInterface
     public int videoGetPosition() {
-      runOnUiThreadWait(() -> {
-        try {
-          long position = videoPlayer.getCurrentPosition();
-          videoPosition = position > 0 ? (int) position : 0;
-        } catch (Exception ignored) {
-        }
-      });
-      return videoPosition;
+      try {
+        long position = videoPlayer.getCurrentPosition();
+        return position > 0 ? (int) position : 0;
+      } catch (Exception e) {
+        return 0;
+      }
     }
 
     @JavascriptInterface
@@ -2090,16 +2089,13 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public int videoBufferPercent() {
       if (videoStatCurrentUrl.equals("")) {
-        videoLastBufferPercent = 0;
         return -1;
       }
-      activity.runOnUiThread(() -> {
-        try {
-          videoLastBufferPercent = videoPlayer.getBufferedPercentage();
-        } catch (Exception ignored) {
-        }
-      });
-      return videoLastBufferPercent;
+      try {
+        return videoPlayer.getBufferedPercentage();
+      } catch (Exception e) {
+        return 0;
+      }
     }
 
     @JavascriptInterface

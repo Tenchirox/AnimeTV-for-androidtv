@@ -1,6 +1,9 @@
 package com.amarullz.androidtv.animetvjmto
 
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 /**
  * Pool de threads partage pour les taches de fond de l'application.
@@ -12,8 +15,14 @@ import java.util.concurrent.Executors
  */
 object AppExecutors {
 
-    private val pool = Executors.newCachedThreadPool { runnable ->
-        Thread(runnable, "animetv-worker").apply { isDaemon = true }
+    private val pool = ThreadPoolExecutor(
+        4, 4,
+        60L, TimeUnit.SECONDS,
+        LinkedBlockingQueue()
+    ).apply {
+        threadFactory = java.util.concurrent.ThreadFactory { r ->
+            Thread(r, "animetv-worker").apply { isDaemon = true }
+        }
     }
 
     /** Execute une tache de fond (equivalent d'AsyncTask.execute). */

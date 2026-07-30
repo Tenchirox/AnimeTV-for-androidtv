@@ -33,13 +33,19 @@ object AppLog {
     private const val MAX_LINES = 1000
     private val buffer = ArrayDeque<String>()
     private val timeFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+    private val reusableDate = Date()
+    private val sb = StringBuilder(128)
 
     /** Ajoute une ligne de log au buffer (thread-safe). */
     @JvmStatic
     @Synchronized
     fun add(tag: String, message: String) {
         if (buffer.size >= MAX_LINES) buffer.pollFirst()
-        buffer.addLast("${timeFormat.format(Date())} $tag: $message")
+        sb.setLength(0)
+        reusableDate.time = System.currentTimeMillis()
+        sb.append(timeFormat.format(reusableDate))
+            .append(' ').append(tag).append(": ").append(message)
+        buffer.addLast(sb.toString())
     }
 
     /** Vide le buffer. */

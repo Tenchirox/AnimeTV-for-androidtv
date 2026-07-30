@@ -7580,10 +7580,13 @@ const vtt={
           ln=ln.replace(/{b}/g,'<b>').replace(/{\/b}/g,'<\/b>').replace(/{i}/g,'<i>').replace(/{\/i}/g,'<\/i>').replace(/{u}/g,'<u>').replace(/{\/u}/g,'<\/u>');
           ln=ln.replace(/{[\*\=][^}]*}/g,"");
           t[p].tx+='\n'+ln;
-          t[p].tx=t[p].tx.trim();
         }
       }
     }catch(e){
+    }
+    /* trim final des cues (evite le O(n²) du trim par ligne) */
+    for (var i=0;i<t.length;i++){
+      t[i].tx=t[i].tx.trim();
     }
     return t;
   },
@@ -19210,7 +19213,7 @@ const _MAL={
             if (retry<4){
               setTimeout(function(){
                 _MAL.alreq(q,vars,cb,notoken,retry+1);
-              },50);
+      },200);
             }
             else{
               try{

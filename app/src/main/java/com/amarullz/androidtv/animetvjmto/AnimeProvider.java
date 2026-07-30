@@ -186,7 +186,6 @@ public class AnimeProvider {
       http.execute();
       JSONArray result = new JSONArray("[]");
       parseAiringSchedules(result, http.body.toString());
-      callback.onFinish(result.toString());
       if (result.length() > 0) {
         ALog.d(_TAG, "GOT RECENTS => " + result.length());
         callback.onFinish(result.toString());

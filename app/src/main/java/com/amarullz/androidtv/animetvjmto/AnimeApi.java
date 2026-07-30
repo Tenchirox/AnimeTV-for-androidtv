@@ -297,8 +297,14 @@ public class AnimeApi extends WebViewClient {
     }
   }
 
-  /** Lit un asset texte (UTF-8) en chaine. */
+  private final java.util.Map<String, String> assetCache = new java.util.HashMap<>();
+
+  /** Lit un asset texte (UTF-8) en chaine (cache). */
   public String assetsString(String fn) {
+    String cached = assetCache.get(fn);
+    if (cached != null) {
+      return cached;
+    }
     try {
       StringBuilder sb = new StringBuilder();
       BufferedReader reader = new BufferedReader(new InputStreamReader(
@@ -309,7 +315,9 @@ public class AnimeApi extends WebViewClient {
         sb.append("\n");
       }
       reader.close();
-      return sb.toString();
+      String result = sb.toString();
+      assetCache.put(fn, result);
+      return result;
     } catch (IOException e) {
       return "";
     }
@@ -505,6 +513,8 @@ public class AnimeApi extends WebViewClient {
     return VersionUtils.parseSha256Digest(digest);
   }
 
+  static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
+
   /** Calcule le SHA-256 hexadecimal d'un fichier. */
   public static String sha256File(File file) throws Exception {
     java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
@@ -515,9 +525,9 @@ public class AnimeApi extends WebViewClient {
         md.update(buffer, 0, read);
       }
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(64);
     for (byte b : md.digest()) {
-      sb.append(String.format("%02x", b));
+      sb.append(HEX_DIGITS[(b >> 4) & 0xf]).append(HEX_DIGITS[b & 0xf]);
     }
     return sb.toString();
   }
@@ -731,13 +741,12 @@ public class AnimeApi extends WebViewClient {
         body = new ByteArrayOutputStream();
         okhttp3.ResponseBody responseBody = res.body();
         if (responseBody != null) {
-          long contentLength = responseBody.contentLength();
-          byte[] bytes = responseBody.bytes();
-          if (contentLength != -1 && contentLength != bytes.length) {
-            throw new IOException("Content-Length (" + contentLength +
-                ") and stream length (" + bytes.length + ") disagree");
+          InputStream is = responseBody.byteStream();
+          byte[] buf = new byte[8192];
+          int n;
+          while ((n = is.read(buf)) != -1) {
+            body.write(buf, 0, n);
           }
-          body.write(bytes);
         }
         ctype = parseContentType(res.header("Content-Type"));
         return;
@@ -750,12 +759,11 @@ public class AnimeApi extends WebViewClient {
         http.setUseCaches(false);
       }
       ctype = parseContentType(http.getContentType());
-      body = new ByteArrayOutputStream();
       InputStream inputStream = http.getInputStream();
       try {
-        byte[] buf = new byte[1024];
+        byte[] buf = new byte[8192];
         int n;
-        while ((n = inputStream.read(buf, 0, 1024)) != -1) {
+        while ((n = inputStream.read(buf)) != -1) {
           body.write(buf, 0, n);
         }
       } catch (Exception ignored) {

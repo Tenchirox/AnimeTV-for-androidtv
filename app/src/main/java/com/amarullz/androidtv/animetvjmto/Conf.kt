@@ -138,6 +138,10 @@ object Conf {
 
     /** @return true si le host donne est l'un des domaines sources (1..8). */
     @JvmStatic
-    fun isSourceDomain(host: String): Boolean =
-        SOURCE_DOMAINS.drop(1).any { it == host }
+    fun isSourceDomain(host: String): Boolean {
+        for (i in 1 until SOURCE_DOMAINS.size) {
+            if (SOURCE_DOMAINS[i] == host) return true
+        }
+        return false
+    }
 }
