@@ -7035,6 +7035,8 @@ const subfallback={
     return subfallback.apikey()!='' &&
       pb.cfg_data.lang!='nosub' && pb.cfg_data.lang!='hard' && pb.cfg_data.lang!='dub';
   },
+  _queue:[],
+  _step:0,
   try:function(manual){
     if (!subfallback.active()){
       if (manual){
@@ -7052,52 +7054,85 @@ const subfallback={
       _API.showToast("Searching OpenSubtitles...");
     }
     var title=pb.data.title||'';
+    var titleJp=pb.data.title_jp||'';
     if (!title){
       return;
     }
     var lang=pb.cfg_data.lang;
-    var langs=(lang&&lang!='')?lang:'fr,en';
-    var q='query='+encodeURIComponent(title)+'&languages='+encodeURIComponent(langs);
     var ep=parseInt(pb.ep_val)||0;
+    /* build search queue: [title, langs] pairs */
+    var q=[];
+    var cfgLang=(lang&&lang!='')?lang:'fr,en';
+    q.push({t:title,l:cfgLang});
+    if (titleJp && titleJp!=title){
+      q.push({t:titleJp,l:cfgLang});
+    }
+    if (cfgLang!='fr,en'){
+      q.push({t:title,l:'fr,en'});
+    }
+    subfallback._queue=q;
+    subfallback._step=0;
+    subfallback._lang=lang;
+    subfallback._ep=ep;
+    subfallback._next();
+  },
+  _next:function(){
+    if (subfallback._step>=subfallback._queue.length){
+      console.log("SUBFALLBACK: all searches exhausted");
+      if (subfallback._manual){
+        _API.showToast("OpenSubtitles: no result");
+        subfallback._manual=false;
+      }
+      return;
+    }
+    var item=subfallback._queue[subfallback._step];
+    subfallback._step++;
+    subfallback._search(item.t,item.l,subfallback._ep);
+  },
+  _search:function(title,langs,ep){
+    var q='query='+encodeURIComponent(title)+'&languages='+encodeURIComponent(langs);
     if (ep>0){
       q+='&type=episode&season_number=1&episode_number='+ep;
     }
     else{
       q+='&type=movie';
     }
-    console.log("SUBFALLBACK search: "+title+" / "+langs);
+    console.log("SUBFALLBACK search ["+subfallback._step+"/"+subfallback._queue.length+"]: "+title+" / "+langs);
     $ap('https://api.opensubtitles.com/api/v1/subtitles?'+q,function(r){
       if (!r.ok){
+        console.log("SUBFALLBACK: HTTP error "+r.status);
+        subfallback._next();
         return;
       }
       try{
         var j=JSON.parse(r.responseText);
         var data=j.data||[];
+        var total=j.total_count||0;
+        console.log("SUBFALLBACK: total_count="+total+" results="+data.length);
         if (!data.length){
-          console.log("SUBFALLBACK: no result");
-          if (subfallback._manual){
-            _API.showToast("OpenSubtitles: no result");
-            subfallback._manual=false;
-          }
+          subfallback._next();
           return;
         }
-        var pick=subfallback.pick(data,lang);
+        var pick=subfallback.pick(data,subfallback._lang);
         if (!pick){
+          subfallback._next();
           return;
         }
         var attrs=pick.attributes;
         var files=attrs.files||[];
         if (!files.length){
+          subfallback._next();
           return;
         }
         console.log("SUBFALLBACK: got "+attrs.language+" -> "+files[0].file_name);
         subfallback.download(files[0].file_id,attrs.language);
       }catch(e){
         console.log("SUBFALLBACK parse err: "+e);
+        subfallback._next();
       }
     },{
       'Api-Key':subfallback.apikey(),
-      'User-Agent':subfallback.UA
+      'X-UA-Prox':subfallback.UA
     }).timeout=10000;
   },
   pick:function(data,lang){
@@ -7146,6 +7181,7 @@ const subfallback={
       }
     },{
       'Api-Key':subfallback.apikey(),
+      'X-UA-Prox':subfallback.UA,
       'Content-Type':'application/json',
       'X-Post-Body':JSON.stringify({file_id:fileId})
     }).timeout=10000;

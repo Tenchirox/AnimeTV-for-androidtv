@@ -1441,8 +1441,14 @@ public class AnimeView extends WebViewClient {
       String orgProx = request.getRequestHeaders().get("X-Org-Prox");
       String refProx = request.getRequestHeaders().get("X-Ref-Prox");
       String noHProxy = request.getRequestHeaders().get("X-NoH-Proxy");
+      /* X-UA-Prox : force un User-Agent custom (la WebView refuse que le
+         JS definisse User-Agent, ex: API OpenSubtitles) */
+      String uaProx = request.getRequestHeaders().get("X-UA-Prox");
 
       AnimeApi.Http http = new AnimeApi.Http(targetUrl);
+      if (uaProx != null) {
+        http.addHeader("User-Agent", uaProx);
+      }
       if (streamProx != null) {
         /* Mode stream : Origin/Referer deduits du domaine cible */
         String[] parts = streamProx.split("\\.");
@@ -1487,7 +1493,12 @@ public class AnimeView extends WebViewClient {
               key.equalsIgnoreCase("X-NoH-Proxy") ||
               key.equalsIgnoreCase("X-Fixdomain-Prox") ||
               key.equalsIgnoreCase("X-Dash-Prox") ||
+              key.equalsIgnoreCase("X-UA-Prox") ||
               key.equalsIgnoreCase("Post-Body")) {
+            continue;
+          }
+          /* Ne pas ecraser le User-Agent force via X-UA-Prox */
+          if (uaProx != null && key.equalsIgnoreCase("User-Agent")) {
             continue;
           }
           http.addHeader(key, header.getValue());
