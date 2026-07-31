@@ -25,6 +25,7 @@ const __SD5=(__SD==5);
 const __SD6=(__SD==6);
 const __SD7=(__SD==7);
 const __SD8=(__SD==8);
+const __SD9=(__SD==9);
 
 // pahe anime => document.querySelectorAll('.content-wrapper .tab-content .row div a[title]');
 
@@ -40,7 +41,7 @@ var _ISELECTRON=('isElectron' in _JSAPI);
 // }
 
 const __SOURCE_NAME=[
-  'AnimeKAI', 'Anix', 'Aniwatch', 'Aniwatch', 'Animeflix', 'KickAss', 'Gojo', 'Miruro'
+  'AnimeKAI', 'Anix', 'Aniwatch', 'Aniwatch', 'Animeflix', 'KickAss', 'Gojo', 'Miruro', 'Everything'
 ];
 // https://kickass-anime.ro/
 const __SOURCE_DOMAINS=[
@@ -56,7 +57,7 @@ const __SOURCE_DOMAINS=[
 
 /* Sources actives : AnimeKAI(1), Anix(2) et Animeflix(5) sont mortes
    et masquees de la liste de selection (les index sont preserves) */
-const __SOURCE_ACTIVE=[3,6,7,8];
+const __SOURCE_ACTIVE=[3,6,7,8,9];
 const __SOURCE_ACTIVE_NAME=__SOURCE_ACTIVE.map(function(s){return __SOURCE_NAME[s-1];});
 
 /* video res change */
@@ -13487,6 +13488,223 @@ const pb={
   }
 };
 
+/* =====================================================================
+ * Everything (SD9) : agrège les catalogues de toutes les sources
+ * ===================================================================== */
+var everything={
+  /* Sources actives a interroger (toutes sauf les mortes) */
+  sources:[3,6,7,8],
+  source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
+
+  /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
+  parseSource:function(sd, text){
+    var rd=[];
+    try{
+      if (sd==3){
+        /* Aniwatch : HTML scraping */
+        var hd=document.createElement('div');
+        hd.innerHTML=text;
+        var it=hd.querySelectorAll('section div.film_list-wrap div.flw-item');
+        for (var i=0;i<it.length;i++){
+          var t=it[i];
+          try{
+            var d={};
+            var at=t.querySelector('.film-name a');
+            d.url=at.getAttribute('href');
+            if (d.url.indexOf("?")>=0) d.url=d.url.substring(0,d.url.indexOf('?'));
+            d.title=at.getAttribute('title');
+            try{ d.title_jp=at.getAttribute('data-jname'); }catch(ee){}
+            d.tip=d.url.split('/').pop();
+            d.poster=t.querySelector('img').getAttribute('data-src');
+            var epl=t.querySelector('.tick-sub');
+            var epld=t.querySelector('.tick-dub');
+            if (epl) d.epsub=d.epavail=d.ep=epl.textContent.trim();
+            if (epld) d.epdub=epld.textContent.trim();
+            d.eptotal=0;
+            d.adult=t.querySelector('.tick.tick-rate')?true:false;
+            d.type=(t.querySelector('.fd-infor .fdi-item').textContent+'').trim();
+            d.source=3;
+            rd.push(d);
+          }catch(e){}
+        }
+        hd.innerHTML='';
+      }
+      else if (sd==6){
+        /* KickAss : JSON */
+        var j=JSON.parse(text);
+        var items=j.data||j;
+        if (Array.isArray(items)){
+          for (var i=0;i<items.length;i++){
+            try{
+              var a=items[i];
+              var d={};
+              d.title=a.title||a.name||'';
+              d.url='/'+(a.slug||a.id||'');
+              d.tip=a.slug||a.id||'';
+              d.poster=a.poster||a.image||'';
+              d.ep=a.episode?''+a.episode:'';
+              d.epdub=a.dub_episode?''+a.dub_episode:'';
+              d.epsub=d.ep;
+              d.eptotal=a.total_episodes?''+a.total_episodes:'';
+              d.type=a.type||'TV';
+              d.source=6;
+              rd.push(d);
+            }catch(e){}
+          }
+        }
+      }
+      else if (sd==7){
+        /* Gojo : JSON */
+        var j=JSON.parse(text);
+        var items=j.data||j;
+        if (Array.isArray(items)){
+          for (var i=0;i<items.length;i++){
+            try{
+              var a=items[i];
+              var d={};
+              d.title=a.title||a.name||'';
+              d.url='/'+(a.id||'');
+              d.tip=a.id||'';
+              d.poster=a.image||a.cover||'';
+              d.ep=a.episode?''+a.episode:'';
+              d.epsub=d.ep;
+              d.epdub='';
+              d.eptotal=a.total_episodes?''+a.total_episodes:'';
+              d.type=a.type||'TV';
+              d.source=7;
+              rd.push(d);
+            }catch(e){}
+          }
+        }
+      }
+      else if (sd==8){
+        /* Miruro : JSON */
+        var j=JSON.parse(text);
+        var items=j.data||j;
+        if (Array.isArray(items)){
+          for (var i=0;i<items.length;i++){
+            try{
+              var a=items[i];
+              var d={};
+              d.title=a.title||a.name||'';
+              d.url='/'+(a.id||a.slug||'');
+              d.tip=a.id||a.slug||'';
+              d.poster=a.poster||a.image||'';
+              d.ep=a.episode?''+a.episode:'';
+              d.epsub=d.ep;
+              d.epdub='';
+              d.eptotal=a.total_episodes?''+a.total_episodes:'';
+              d.type=a.type||'TV';
+              d.source=8;
+              rd.push(d);
+            }catch(e){}
+          }
+        }
+      }
+    }catch(e){
+      console.log("EVERYTHING parse err sd="+sd+": "+e);
+    }
+    return rd;
+  },
+
+  /* Normalise un titre pour la comparaison (minuscule, sans ponctuation) */
+  normTitle:function(t){
+    return (t||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  },
+
+  /* Fusionne+deduplique par titre. Garde le premier trouve (priorite par ordre de source). */
+  merge:function(lists){
+    var seen={};
+    var result=[];
+    for (var i=0;i<lists.length;i++){
+      var list=lists[i];
+      for (var j=0;j<list.length;j++){
+        var item=list[j];
+        var key=everything.normTitle(item.title);
+        if (!key) continue;
+        if (!seen[key]){
+          seen[key]=true;
+          result.push(item);
+        }
+      }
+    }
+    return result;
+  },
+
+  /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
+  load:function(page, cb){
+    var pending=everything.sources.length;
+    var lists=[];
+    for (var i=0;i<everything.sources.length;i++){
+      lists.push([]);
+    }
+    for (var si=0;si<everything.sources.length;si++){
+      (function(idx){
+        var sd=everything.sources[idx];
+        var url='';
+        if (sd==3) url='/recently-updated?page='+page;
+        else if (sd==6) url='/api/show/recent?type=sub&page='+page;
+        else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
+        else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
+        if (!url){
+          pending--;
+          if (pending===0) cb(everything.merge(lists));
+          return;
+        }
+        $ap(url,function(r){
+          if (r.ok){
+            lists[idx]=everything.parseSource(sd,r.responseText);
+          }
+          pending--;
+          if (pending===0) cb(everything.merge(lists));
+        });
+      })(si);
+    }
+  },
+
+  /* Charge une page du catalogue Everything (appele par recent_init) */
+  loadPage:function(g){
+    g._onload=1;
+    everything.load(g._page,function(items){
+      for (var i=0;i<items.length;i++){
+        var d=items[i];
+        if (!ratingSystem.checkAdult(d.adult,d.title,d.title_jp)){
+          continue;
+        }
+        var argv={
+          url:d.url,
+          img:d.poster,
+          ttip:d.tip,
+          sp:0,
+          tp:0,
+          ep:d.ep,
+          title:d.title
+        };
+        var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},g.P,'');
+        hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
+        hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
+        $n('span','info_ep',{style:'background:#2a6;margin-right:4px'},
+          hl,everything.source_names[d.source]||'');
+        if (d.ep){
+          $n('span','info_ep',{},hl,'Ep '+d.ep);
+        }
+        if (d.type){
+          $n('span','info_type',{},hl,d.type);
+        }
+        hl._sourceSwitch=d.source;
+        hl.onclick=function(){
+          var sd=this._sourceSwitch;
+          if (sd && __SD!=sd){
+            _JSAPI.setSd(sd);
+            _JSAPI.reloadHome();
+          }
+        };
+      }
+      g._onload=0;
+    });
+  }
+};
+
 const home={
   home_onload:false,
   home:$('home'),
@@ -15019,6 +15237,16 @@ const home={
       // miruro
       homepage=[
         // ["recent",'/recent-eps?type=anime&perPage=16&page=', "Recently Updated", true]
+      ];
+    }
+    else if (__SD9){
+      // everything : agrège toutes les sources
+      homepage=[
+        ["everything_recent",function(el){
+          home.recent_init(el, function(rc){
+            everything.loadPage(rc);
+          });
+        }, "Recently Updated - All Sources", true]
       ];
     }
     else{

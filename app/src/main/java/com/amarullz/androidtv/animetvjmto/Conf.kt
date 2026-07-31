@@ -33,7 +33,8 @@ object Conf {
         "animeflix.live", /* 5 : Animeflix (rip) */
         "kaa.lt",         /* 6 : KAA / KickAss */
         "api.gojo.wtf",   /* 7 : Gojo */
-        "www.miruro.tv"   /* 8 : Miruro */
+        "www.miruro.tv",  /* 8 : Miruro */
+        "everything"      /* 9 : Everything (virtual, aggregates all sources) */
     )
 
     /** API utilisee par la source 5 (animeflix). */
@@ -57,11 +58,13 @@ object Conf {
     /**
      * Normalise une source : morte -> defaut, 4 -> 3 (Aniwatch etait
      * affiche en double alors que 3 et 4 sont traites a l'identique).
+     * SD9 (Everything) est toujours valide.
      */
     @JvmStatic
     fun normalizeSource(source: Int): Int = when {
         isDeadSource(source) -> SOURCE_DOMAIN_DEFAULT
         source == 4 -> 3
+        source == 9 -> 9  /* Everything : virtuelle, toujours valide */
         else -> source
     }
 
