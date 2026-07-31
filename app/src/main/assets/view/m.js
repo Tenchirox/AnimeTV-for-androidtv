@@ -13497,7 +13497,8 @@ var everything={
   source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
 
   /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
-  parseSource:function(sd, text){
+  parseSource:function(sd, text, mode){
+    mode=mode||'recent';
     var rd=[];
     try{
       if (sd==3){
@@ -13632,7 +13633,8 @@ var everything={
   },
 
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
-  load:function(page, cb){
+  load:function(page, cb, mode){
+    mode=mode||'recent';
     var pending=everything.sources.length;
     var lists=[];
     for (var i=0;i<everything.sources.length;i++){
@@ -13642,10 +13644,18 @@ var everything={
       (function(idx){
         var sd=everything.sources[idx];
         var url='';
-        if (sd==3) url='/recently-updated?page='+page;
-        else if (sd==6) url='/api/show/recent?type=sub&page='+page;
-        else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
-        else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
+        if (mode=='recent'){
+          if (sd==3) url='/recently-updated?page='+page;
+          else if (sd==6) url='/api/show/recent?type=sub&page='+page;
+          else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
+          else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
+        }else if (mode=='trending'){
+          if (sd==3) url='/trending?page='+page;
+          else if (sd==6) url='/api/show/trending?page='+page;
+        }else if (mode=='popular'){
+          if (sd==3) url='/popular?page='+page;
+          else if (sd==6) url='/api/show/popular?page='+page;
+        }
         if (!url){
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13653,7 +13663,7 @@ var everything={
         }
         $ap(url,function(r){
           if (r.ok){
-            lists[idx]=everything.parseSource(sd,r.responseText);
+            lists[idx]=everything.parseSource(sd,r.responseText,mode);
           }
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13662,8 +13672,94 @@ var everything={
     }
   },
 
+  /* Search agrégée sur toutes les sources + AniList */
+  search:function(kw, page, cb){
+    var pending=everything.sources.length + 1; /* sources + AniList */
+    var lists=[];
+    for (var i=0;i<=everything.sources.length;i++){
+      lists.push([]);
+    }
+    function done(){
+      pending--;
+      if (pending===0) cb(everything.merge(lists));
+    }
+    for (var si=0;si<everything.sources.length;si++){
+      (function(idx){
+        var sd=everything.sources[idx];
+        var url='';
+        if (sd==3) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        else if (sd==6){
+          /* KickAss search uses POST */
+          var kaj={query:kw,page:page};
+          $a('/api/search',function(r){
+            if (r.ok){
+              lists[idx]=everything.parseSource(sd,r.responseText,'search');
+            }
+            done();
+          },_API.filterorigin(),'POST',JSON.stringify(kaj),'application/json');
+          return;
+        }
+        else if (sd==7) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        else if (sd==8) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        if (!url){
+          done();
+          return;
+        }
+        $ap(url,function(r){
+          if (r.ok){
+            lists[idx]=everything.parseSource(sd,r.responseText,'search');
+          }
+          done();
+        });
+      })(si);
+    }
+    /* AniList (couvre toutes les sources anime) */
+    (function(){
+      var query=
+`query ($page: Int, $perPage: Int, $search: String) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { hasNextPage currentPage }
+    media(sort: SEARCH_MATCH, isAdult:false, type: ANIME, search: $search){
+      id
+      title{ romaji english }
+      coverImage{ large medium }
+      episodes
+      status
+      format
+    }
+  }
+}`;
+      _MAL.alreq(query,{page:page||1,perPage:12,search:kw},function(v){
+        try{
+          if (v.data && v.data.Page && v.data.Page.media){
+            var items=v.data.Page.media;
+            var mapped=[];
+            for (var i=0;i<items.length;i++){
+              var m=items[i];
+              var d={};
+              d.title=m.title.english||m.title.romaji;
+              d.url=m.id+'/'+encodeURIComponent((d.title||'').replace(/ /g,'_'));
+              d.tip=m.id+'';
+              d.poster=(m.coverImage&&m.coverImage.large)?m.coverImage.large:'';
+              d.epsub=0;
+              d.epdub=0;
+              d.eptotal=m.episodes||0;
+              d.adult=false;
+              d.type=m.format||'';
+              d.source=0;
+              mapped.push(d);
+            }
+            lists[everything.sources.length]=mapped;
+          }
+        }catch(e){}
+        done();
+      },true);
+    })();
+  },
+
   /* Charge une page du catalogue Everything (appele par recent_init) */
-  loadPage:function(g){
+  loadPage:function(g, mode){
+    mode=mode||'recent';
     g._onload=1;
     everything.load(g._page,function(items){
       for (var i=0;i<items.length;i++){
@@ -13701,7 +13797,87 @@ var everything={
         };
       }
       g._onload=0;
-    });
+    },mode);
+  },
+
+  /* Trending page init */
+  loadTrending:function(g){
+    g._onload=1;
+    everything.load(g._page,function(items){
+      for (var i=0;i<items.length;i++){
+        var d=items[i];
+        if (!ratingSystem.checkAdult(d.adult,d.title,d.title_jp)){
+          continue;
+        }
+        var argv={
+          url:d.url,
+          img:d.poster,
+          ttip:d.tip,
+          sp:0, tp:0, ep:d.ep,
+          title:d.title
+        };
+        var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},g.P,'');
+        hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
+        hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
+        $n('span','info_ep',{style:'background:#2a6;margin-right:4px'},
+          hl,everything.source_names[d.source]||'');
+        if (d.ep){
+          $n('span','info_ep',{},hl,'Ep '+d.ep);
+        }
+        if (d.type){
+          $n('span','info_type',{},hl,d.type);
+        }
+        hl._sourceSwitch=d.source;
+        hl.onclick=function(){
+          var sd=this._sourceSwitch;
+          if (sd && __SD!=sd){
+            _JSAPI.setSd(sd);
+            _JSAPI.reloadHome();
+          }
+        };
+      }
+      g._onload=0;
+    },'trending');
+  },
+
+  /* Popular page init */
+  loadPopular:function(g){
+    g._onload=1;
+    everything.load(g._page,function(items){
+      for (var i=0;i<items.length;i++){
+        var d=items[i];
+        if (!ratingSystem.checkAdult(d.adult,d.title,d.title_jp)){
+          continue;
+        }
+        var argv={
+          url:d.url,
+          img:d.poster,
+          ttip:d.tip,
+          sp:0, tp:0, ep:d.ep,
+          title:d.title
+        };
+        var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},g.P,'');
+        hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
+        hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
+        $n('span','info_ep',{style:'background:#2a6;margin-right:4px'},
+          hl,everything.source_names[d.source]||'');
+        if (d.ep){
+          $n('span','info_ep',{},hl,'Ep '+d.ep);
+        }
+        if (d.type){
+          $n('span','info_type',{},hl,d.type);
+        }
+        hl._sourceSwitch=d.source;
+        hl.onclick=function(){
+          var sd=this._sourceSwitch;
+          if (sd && __SD!=sd){
+            _JSAPI.setSd(sd);
+            _JSAPI.reloadHome();
+          }
+        };
+      }
+      g._onload=0;
+    },'popular');
   }
 };
 
@@ -15246,7 +15422,17 @@ const home={
           home.recent_init(el, function(rc){
             everything.loadPage(rc);
           });
-        }, "Recently Updated - All Sources", true]
+        }, "Recently Updated - All Sources", true],
+        ["everything_trending",function(el){
+          home.recent_init(el, function(rc){
+            everything.loadTrending(rc);
+          });
+        }, "Trending - Aniwatch+KickAss", true],
+        ["everything_popular",function(el){
+          home.recent_init(el, function(rc){
+            everything.loadPopular(rc);
+          });
+        }, "Popular - Aniwatch+KickAss", true]
       ];
     }
     else{
@@ -17470,6 +17656,73 @@ const home={
       home.search.kw.value=home.search.kw.value.trim();
 
       if (home.search.kw.value!=''||home.search.genreval.length>0){
+        /* Everything SD9: aggregated search */
+        if (__SD9 && home.search.kw.value!=''){
+          var kw=home.search.kw.value;
+          var rc=home.search.res;
+          if (!getpage||(getpage<=1)){
+            rc._page=1;
+            rc._havenext=false;
+            pb.menu_clear(rc);
+            rc._nojump=true;
+            pb.menu_init(rc);
+            rc._spre=[];
+            rc._spost=[];
+            rc._onload=0;
+            rc._sel=null;
+          }
+          home.search.res.setAttribute('list-title','Everything Search Result');
+          home.search.res.classList.add('searching');
+          home.search.res._onload=1;
+          everything.search(kw,getpage||1,function(items){
+            for (var i=0;i<items.length;i++){
+              var d=items[i];
+              var argv={
+                url:d.url,
+                img:d.poster,
+                ttip:d.tip,
+                sp:0,tp:0,ep:0,
+                title:d.title
+              };
+              var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},rc.P,'');
+              hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
+              hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
+              var binfotxt='';
+              if (d.source){
+                var srcName=everything.source_names[d.source]||'AniList';
+                binfotxt+='<span class="info_source" style="background:#2a6">'+special(srcName)+'</span>';
+              }
+              if (d.epsub){
+                binfotxt+='<span class="info_ep info_epsub"><c>closed_caption</c>'+special(d.epsub)+'</span>';
+              }
+              if (d.epdub){
+                binfotxt+='<span class="info_ep info_epdub"><c>mic</c>'+special(d.epdub)+'</span>';
+              }
+              if (d.type){
+                binfotxt+='<span class="info_type">'+special(d.type)+'</span>';
+              }
+              if (binfotxt){
+                hl._ep=$n('span','info info_bottom',null,hl,binfotxt);
+              }
+              hl._sourceSwitch=d.source;
+              hl.onclick=function(){
+                var sd=this._sourceSwitch;
+                if (sd && sd!=3 && __SD!=sd){
+                  _JSAPI.setSd(sd);
+                  _JSAPI.reloadHome();
+                }
+              };
+            }
+            rc._havenext=(items.length>=12);
+            rc._onload=0;
+            home.search.res.classList.remove('searching');
+            if (!rc._sel)
+              pb.menu_select(rc,rc.P.firstElementChild);
+            else
+              pb.menu_select(rc,rc._sel);
+          });
+          return true;
+        }
         if ((home.search.src.cfg.anilist&&!home.search.noanilist) || __SD7 || __SD8){
           home.search.res.setAttribute('list-title','AniList Search Result');
           var kw=home.search.kw.value;
