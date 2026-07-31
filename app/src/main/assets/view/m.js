@@ -13658,7 +13658,11 @@ var everything={
         }
         $ap(url,function(r){
           if (r.ok){
+            console.log("EVERYTHING sd="+sd+" resp len="+(r.responseText||'').length+" first200="+(r.responseText||'').substring(0,200));
             lists[idx]=everything.parseSource(sd,r.responseText);
+            console.log("EVERYTHING sd="+sd+" parsed "+lists[idx].length+" items");
+          }else{
+            console.log("EVERYTHING sd="+sd+" FAIL");
           }
           pending--;
           if (pending===0) cb(everything.merge(lists));
