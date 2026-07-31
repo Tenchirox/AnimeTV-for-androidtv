@@ -13493,8 +13493,9 @@ const pb={
  * Everything (SD9) : agrège les catalogues de toutes les sources
  * ===================================================================== */
 var everything={
-  /* Sources actives a interroger (Gojo SD7 desactive: API renvoie HTML) */
-  sources:[3,6,8],
+  /* Sources actives : seul KickAss (SD6) a une API accessible via proxy.
+     Aniwatch(3)=Cloudflare timeout, Gojo(7)=domaine mort, Miruro(8)=pas d'endpoint. */
+  sources:[6],
   source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
 
   /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
@@ -13650,7 +13651,8 @@ var everything={
   },
 
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
-  load:function(page, cb){
+  load:function(page, cb, mode){
+    mode=mode||'recent';
     var pending=everything.sources.length;
     var lists=[];
     for (var i=0;i<everything.sources.length;i++){
@@ -13661,10 +13663,11 @@ var everything={
         var sd=everything.sources[idx];
         var dom=everything.source_domains[sd];
         var url='';
-        if (sd==3) url='https://'+dom+'/recently-updated?page='+page;
-        else if (sd==6) url='https://'+dom+'/api/show/recent?type=sub&page='+page;
-        else if (sd==7) url='https://'+dom+'/recent-eps?type=anime&perPage=16&page='+page;
-        else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
+        if (sd==6){
+          if (mode=='recent') url='https://'+dom+'/api/show/recent?type=sub&page='+page;
+          else if (mode=='trending') url='https://'+dom+'/api/show/trending?page='+page;
+          else if (mode=='popular') url='https://'+dom+'/api/show/popular?page='+page;
+        }
         if (!url){
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13672,11 +13675,7 @@ var everything={
         }
         $ap(url,function(r){
           if (r.ok){
-            console.log("EVERYTHING sd="+sd+" resp len="+(r.responseText||'').length+" first200="+(r.responseText||'').substring(0,200));
             lists[idx]=everything.parseSource(sd,r.responseText);
-            console.log("EVERYTHING sd="+sd+" parsed "+lists[idx].length+" items");
-          }else{
-            console.log("EVERYTHING sd="+sd+" FAIL");
           }
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13774,7 +13773,8 @@ var everything={
   },
 
   /* Charge une page du catalogue Everything (appele par recent_init) */
-  loadPage:function(g){
+  loadPage:function(g, mode){
+    mode=mode||'recent';
     g._onload=1;
     everything.load(g._page,function(items){
       for (var i=0;i<items.length;i++){
@@ -13812,7 +13812,7 @@ var everything={
         };
       }
       g._onload=0;
-    });
+    },mode);
   }
 };
 
@@ -15351,13 +15351,23 @@ const home={
       ];
     }
     else if (__SD9){
-      // everything : agrège toutes les sources
+      // everything : agrège KickAss + AniList
       homepage=[
         ["everything_recent",function(el){
           home.recent_init(el, function(rc){
-            everything.loadPage(rc);
+            everything.loadPage(rc,'recent');
           });
-        }, "Recently Updated - All Sources", true]
+        }, "Recently Updated - KickAss", true],
+        ["everything_trending",function(el){
+          home.recent_init(el, function(rc){
+            everything.loadPage(rc,'trending');
+          });
+        }, "Trending - KickAss", true],
+        ["everything_popular",function(el){
+          home.recent_init(el, function(rc){
+            everything.loadPage(rc,'popular');
+          });
+        }, "Popular - KickAss", true]
       ];
     }
     else{
