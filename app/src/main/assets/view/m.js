@@ -23203,14 +23203,20 @@ const touchHelper={
 
 /* START */
 (function(){
-  if (home.profiles.init()){
-    SD_LOAD_DOMAIN();
-    window.__ARGUPDATE();
-    _MAL.init();
-    home.init();
-    _API.bgimg_update();
+  try{
+    if (home.profiles.init()){
+      SD_LOAD_DOMAIN();
+      window.__ARGUPDATE();
+      _MAL.init();
+      home.init();
+      _API.bgimg_update();
+      body.classList.remove('notready');
+      _API.electronInitFullscreen();
+    }
+  }catch(e){
+    console.error("INIT ERROR: "+e+"\n"+(e.stack||''));
     body.classList.remove('notready');
-    _API.electronInitFullscreen();
+    var errdiv=$n('div','',{style:'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:20px;z-index:99999;font-size:14px;white-space:pre-wrap;'},document.body,'INIT ERROR: '+e+'\n'+(e.stack||''));
   }
 })();
 
