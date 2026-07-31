@@ -13497,8 +13497,7 @@ var everything={
   source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
 
   /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
-  parseSource:function(sd, text, mode){
-    mode=mode||'recent';
+  parseSource:function(sd, text){
     var rd=[];
     try{
       if (sd==3){
@@ -13633,8 +13632,7 @@ var everything={
   },
 
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
-  load:function(page, cb, mode){
-    mode=mode||'recent';
+  load:function(page, cb){
     var pending=everything.sources.length;
     var lists=[];
     for (var i=0;i<everything.sources.length;i++){
@@ -13644,18 +13642,10 @@ var everything={
       (function(idx){
         var sd=everything.sources[idx];
         var url='';
-        if (mode=='recent'){
-          if (sd==3) url='/recently-updated?page='+page;
-          else if (sd==6) url='/api/show/recent?type=sub&page='+page;
-          else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
-          else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
-        }else if (mode=='trending'){
-          if (sd==3) url='/trending?page='+page;
-          else if (sd==6) url='/api/show/trending?page='+page;
-        }else if (mode=='popular'){
-          if (sd==3) url='/popular?page='+page;
-          else if (sd==6) url='/api/show/popular?page='+page;
-        }
+        if (sd==3) url='/recently-updated?page='+page;
+        else if (sd==6) url='/api/show/recent?type=sub&page='+page;
+        else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
+        else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
         if (!url){
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13663,7 +13653,7 @@ var everything={
         }
         $ap(url,function(r){
           if (r.ok){
-            lists[idx]=everything.parseSource(sd,r.responseText,mode);
+            lists[idx]=everything.parseSource(sd,r.responseText);
           }
           pending--;
           if (pending===0) cb(everything.merge(lists));
@@ -13689,14 +13679,16 @@ var everything={
         var url='';
         if (sd==3) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
         else if (sd==6){
-          /* KickAss search uses POST */
-          var kaj={query:kw,page:page};
-          $a('/api/search',function(r){
+          /* KickAss search: use $ap with POST */
+          var hdr={};
+          hdr.post=JSON.stringify({query:kw,page:page});
+          hdr['Content-Type']='application/json';
+          $ap('/api/search',function(r){
             if (r.ok){
-              lists[idx]=everything.parseSource(sd,r.responseText,'search');
+              lists[idx]=everything.parseSource(sd,r.responseText);
             }
             done();
-          },_API.filterorigin(),'POST',JSON.stringify(kaj),'application/json');
+          },hdr);
           return;
         }
         else if (sd==7) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
@@ -13707,7 +13699,7 @@ var everything={
         }
         $ap(url,function(r){
           if (r.ok){
-            lists[idx]=everything.parseSource(sd,r.responseText,'search');
+            lists[idx]=everything.parseSource(sd,r.responseText);
           }
           done();
         });
@@ -13758,8 +13750,7 @@ var everything={
   },
 
   /* Charge une page du catalogue Everything (appele par recent_init) */
-  loadPage:function(g, mode){
-    mode=mode||'recent';
+  loadPage:function(g){
     g._onload=1;
     everything.load(g._page,function(items){
       for (var i=0;i<items.length;i++){
@@ -13797,87 +13788,7 @@ var everything={
         };
       }
       g._onload=0;
-    },mode);
-  },
-
-  /* Trending page init */
-  loadTrending:function(g){
-    g._onload=1;
-    everything.load(g._page,function(items){
-      for (var i=0;i<items.length;i++){
-        var d=items[i];
-        if (!ratingSystem.checkAdult(d.adult,d.title,d.title_jp)){
-          continue;
-        }
-        var argv={
-          url:d.url,
-          img:d.poster,
-          ttip:d.tip,
-          sp:0, tp:0, ep:d.ep,
-          title:d.title
-        };
-        var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},g.P,'');
-        hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
-        hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
-        $n('span','info_ep',{style:'background:#2a6;margin-right:4px'},
-          hl,everything.source_names[d.source]||'');
-        if (d.ep){
-          $n('span','info_ep',{},hl,'Ep '+d.ep);
-        }
-        if (d.type){
-          $n('span','info_type',{},hl,d.type);
-        }
-        hl._sourceSwitch=d.source;
-        hl.onclick=function(){
-          var sd=this._sourceSwitch;
-          if (sd && __SD!=sd){
-            _JSAPI.setSd(sd);
-            _JSAPI.reloadHome();
-          }
-        };
-      }
-      g._onload=0;
-    },'trending');
-  },
-
-  /* Popular page init */
-  loadPopular:function(g){
-    g._onload=1;
-    everything.load(g._page,function(items){
-      for (var i=0;i<items.length;i++){
-        var d=items[i];
-        if (!ratingSystem.checkAdult(d.adult,d.title,d.title_jp)){
-          continue;
-        }
-        var argv={
-          url:d.url,
-          img:d.poster,
-          ttip:d.tip,
-          sp:0, tp:0, ep:d.ep,
-          title:d.title
-        };
-        var hl=$n('div','',{action:"$"+JSON.stringify(argv),arg:"ep"},g.P,'');
-        hl._img=$n('img','',{loading:'lazy',src:$img(d.poster)},hl,'');
-        hl._title=$n('b','',{jp:d.title_jp?d.title_jp:d.title},hl,tspecial(d.title));
-        $n('span','info_ep',{style:'background:#2a6;margin-right:4px'},
-          hl,everything.source_names[d.source]||'');
-        if (d.ep){
-          $n('span','info_ep',{},hl,'Ep '+d.ep);
-        }
-        if (d.type){
-          $n('span','info_type',{},hl,d.type);
-        }
-        hl._sourceSwitch=d.source;
-        hl.onclick=function(){
-          var sd=this._sourceSwitch;
-          if (sd && __SD!=sd){
-            _JSAPI.setSd(sd);
-            _JSAPI.reloadHome();
-          }
-        };
-      }
-      g._onload=0;
-    },'popular');
+    });
   }
 };
 
@@ -15422,17 +15333,7 @@ const home={
           home.recent_init(el, function(rc){
             everything.loadPage(rc);
           });
-        }, "Recently Updated - All Sources", true],
-        ["everything_trending",function(el){
-          home.recent_init(el, function(rc){
-            everything.loadTrending(rc);
-          });
-        }, "Trending - Aniwatch+KickAss", true],
-        ["everything_popular",function(el){
-          home.recent_init(el, function(rc){
-            everything.loadPopular(rc);
-          });
-        }, "Popular - Aniwatch+KickAss", true]
+        }, "Recently Updated - All Sources", true]
       ];
     }
     else{
