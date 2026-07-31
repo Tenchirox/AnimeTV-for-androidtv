@@ -13631,6 +13631,9 @@ var everything={
     return result;
   },
 
+  /* Domaines des sources (pour construire les URLs completes via $ap) */
+  source_domains:{3:'aniwatchtv.to',6:'kaa.lt',7:'api.gojo.wtf',8:'www.miruro.tv'},
+
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
   load:function(page, cb){
     var pending=everything.sources.length;
@@ -13641,10 +13644,11 @@ var everything={
     for (var si=0;si<everything.sources.length;si++){
       (function(idx){
         var sd=everything.sources[idx];
+        var dom=everything.source_domains[sd];
         var url='';
-        if (sd==3) url='/recently-updated?page='+page;
-        else if (sd==6) url='/api/show/recent?type=sub&page='+page;
-        else if (sd==7) url='/recent-eps?type=anime&perPage=16&page='+page;
+        if (sd==3) url='https://'+dom+'/recently-updated?page='+page;
+        else if (sd==6) url='https://'+dom+'/api/show/recent?type=sub&page='+page;
+        else if (sd==7) url='https://'+dom+'/recent-eps?type=anime&perPage=16&page='+page;
         else if (sd==8) url=''; /* miruro: pas d'endpoint recent standard */
         if (!url){
           pending--;
@@ -13676,14 +13680,15 @@ var everything={
     for (var si=0;si<everything.sources.length;si++){
       (function(idx){
         var sd=everything.sources[idx];
+        var dom=everything.source_domains[sd];
         var url='';
-        if (sd==3) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        if (sd==3) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
         else if (sd==6){
-          /* KickAss search: use $ap with POST */
+          /* KickAss search: POST via proxy */
           var hdr={};
-          hdr.post=JSON.stringify({query:kw,page:page});
+          hdr['X-Post-Body']=JSON.stringify({query:kw,page:page});
           hdr['Content-Type']='application/json';
-          $ap('/api/search',function(r){
+          $ap('https://'+dom+'/api/search',function(r){
             if (r.ok){
               lists[idx]=everything.parseSource(sd,r.responseText);
             }
@@ -13691,8 +13696,8 @@ var everything={
           },hdr);
           return;
         }
-        else if (sd==7) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
-        else if (sd==8) url='/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        else if (sd==7) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        else if (sd==8) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
         if (!url){
           done();
           return;
@@ -14871,7 +14876,7 @@ const home={
       el.__last_touch=$tick()+5000;
     });
 
-    if (__SD6||pb.cfg_data.alisthomess||(__SD==2)||__SD7||__SD8){
+    if (__SD6||pb.cfg_data.alisthomess||(__SD==2)||__SD7||__SD8||__SD9){
       home.home_anilist_load();
       return;
     }
