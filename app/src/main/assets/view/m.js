@@ -13531,23 +13531,29 @@ var everything={
         hd.innerHTML='';
       }
       else if (sd==6){
-        /* KickAss : JSON */
+        /* KickAss : JSON {"result":[...]} */
         var j=JSON.parse(text);
-        var items=j.data||j;
+        var items=j.result||[];
         if (Array.isArray(items)){
           for (var i=0;i<items.length;i++){
             try{
-              var a=items[i];
+              var u=items[i];
               var d={};
-              d.title=a.title||a.name||'';
-              d.url='/'+(a.slug||a.id||'');
-              d.tip=a.slug||a.id||'';
-              d.poster=a.poster||a.image||'';
-              d.ep=a.episode?''+a.episode:'';
-              d.epdub=a.dub_episode?''+a.dub_episode:'';
-              d.epsub=d.ep;
-              d.eptotal=a.total_episodes?''+a.total_episodes:'';
-              d.type=a.type||'TV';
+              d.title=u.title_en?u.title_en:u.title;
+              d.title_jp=u.title;
+              d.url=u.slug;
+              d.tip=u.slug;
+              /* poster: relative path → full kaa.lt URL */
+              var pp=kaas.imgPoster(u.poster,0);
+              d.poster=pp?('https://kaa.lt'+pp):'';
+              d.ep=d.epsub=u.episode_number?''+u.episode_number:'';
+              d.epdub='';
+              d.eptotal='';
+              d.type=u.type?u.type.toUpperCase():'';
+              d.adult=false;
+              if (ratingSystem.toRating(u.rating)>3 || ratingSystem.checkAdultTitle(u.title_en,u.title)){
+                d.adult=true;
+              }
               d.source=6;
               rd.push(d);
             }catch(e){}
@@ -13635,6 +13641,12 @@ var everything={
   /* Domaines des sources (pour construire les URLs completes via $ap) */
   source_domains:{3:'aniwatchtv.to',6:'kaa.lt',7:'api.gojo.wtf',8:'www.miruro.tv'},
 
+  /* Headers Origin/Referer pour chaque source (le proxy les utilise) */
+  source_headers:function(sd){
+    var dom=everything.source_domains[sd];
+    return {'X-Org-Prox':'https://'+dom,'X-Ref-Prox':'https://'+dom+'/'};
+  },
+
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
   load:function(page, cb){
     var pending=everything.sources.length;
@@ -13666,7 +13678,7 @@ var everything={
           }
           pending--;
           if (pending===0) cb(everything.merge(lists));
-        });
+        },everything.source_headers(sd));
       })(si);
     }
   },
@@ -13687,10 +13699,10 @@ var everything={
         var sd=everything.sources[idx];
         var dom=everything.source_domains[sd];
         var url='';
+        var hdr=everything.source_headers(sd);
         if (sd==3) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
         else if (sd==6){
           /* KickAss search: POST via proxy */
-          var hdr={};
           hdr['X-Post-Body']=JSON.stringify({query:kw,page:page});
           hdr['Content-Type']='application/json';
           $ap('https://'+dom+'/api/search',function(r){
@@ -13712,7 +13724,7 @@ var everything={
             lists[idx]=everything.parseSource(sd,r.responseText);
           }
           done();
-        });
+        },hdr);
       })(si);
     }
     /* AniList (couvre toutes les sources anime) */
