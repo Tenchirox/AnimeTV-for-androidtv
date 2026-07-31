@@ -13493,8 +13493,8 @@ const pb={
  * Everything (SD9) : agrège les catalogues de toutes les sources
  * ===================================================================== */
 var everything={
-  /* Sources actives a interroger (toutes sauf les mortes) */
-  sources:[3,6,7,8],
+  /* Sources actives a interroger (Gojo SD7 desactive: API renvoie HTML) */
+  sources:[3,6,8],
   source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
 
   /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
@@ -13644,7 +13644,9 @@ var everything={
   /* Headers Origin/Referer pour chaque source (le proxy les utilise) */
   source_headers:function(sd){
     var dom=everything.source_domains[sd];
-    return {'X-Org-Prox':'https://'+dom,'X-Ref-Prox':'https://'+dom+'/'};
+    var h={'X-Org-Prox':'https://'+dom,'X-Ref-Prox':'https://'+dom+'/'};
+    if (sd==3) h['X-Requested-With']='XMLHttpRequest';
+    return h;
   },
 
   /* Charge les catalogues de toutes les sources en parallele, merge, dedup, callback */
