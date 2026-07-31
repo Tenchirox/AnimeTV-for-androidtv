@@ -34,7 +34,8 @@ object Conf {
         "kaa.lt",         /* 6 : KAA / KickAss */
         "api.gojo.wtf",   /* 7 : Gojo */
         "www.miruro.tv",  /* 8 : Miruro */
-        "everything"      /* 9 : Everything (virtual, aggregates all sources) */
+        "everything",     /* 9 : Everything (virtual, aggregates all sources) */
+        "megaplay.buzz"   /* 10 : MegaPlay (catalogue AniList + streams megaplay) */
     )
 
     /** API utilisee par la source 5 (animeflix). */
@@ -53,7 +54,7 @@ object Conf {
     /** @return true si la source est morte (masquee dans l'UI). */
     @JvmStatic
     fun isDeadSource(source: Int): Boolean =
-        source == 1 || source == 2 || source == 5
+        source == 1 || source == 2 || source == 5 || source == 7
 
     /**
      * Normalise une source : morte -> defaut, 4 -> 3 (Aniwatch etait
@@ -64,7 +65,8 @@ object Conf {
     fun normalizeSource(source: Int): Int = when {
         isDeadSource(source) -> SOURCE_DOMAIN_DEFAULT
         source == 4 -> 3
-        source == 9 -> 9  /* Everything : virtuelle, toujours valide */
+        source == 9 -> 9   /* Everything : virtuelle, toujours valide */
+        source == 10 -> 10 /* MegaPlay : AniList + megaplay.buzz */
         else -> source
     }
 
