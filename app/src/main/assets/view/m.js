@@ -52,7 +52,8 @@ const __SOURCE_DOMAINS=[
   ['animeflix.live','animeflix.gg','animeflix.li'], // rip
   ['kaa.lt'], //,'kickass-anime.ru' /*'kaa.mx' ,'kaa.to' */ /*,'kaas.ro'*/ ],
   ['api.gojo.wtf'],
-  ['www.miruro.tv']
+  ['www.miruro.tv'],
+  ['everything'] /* SD9: virtual aggregate source */
 ];
 
 /* Sources actives : AnimeKAI(1), Anix(2) et Animeflix(5) sont mortes
