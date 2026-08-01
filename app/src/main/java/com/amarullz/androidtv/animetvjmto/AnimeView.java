@@ -122,6 +122,7 @@ public class AnimeView extends WebViewClient {
   public AspectRatioFrameLayout videoFrame = null;
   public final AnimeApi aApi;
   public final String playerInjectString;
+  public final String byseInjectString;
   public boolean webViewReady = false;
 
   /* Cache de la derniere reponse /getSources (megacloud/rapid-cloud),
@@ -224,6 +225,7 @@ public class AnimeView extends WebViewClient {
 
     aApi = new AnimeApi(activity);
     playerInjectString = aApi.assetsString("inject/view_player.html");
+    byseInjectString = aApi.assetsString("inject/byse_autoclick.js");
 
     webView.loadUrl("https://" + Conf.getDomain() + "/__view/login/login.html#appstart");
 
@@ -1289,6 +1291,34 @@ public class AnimeView extends WebViewClient {
           ALog.e(_TAG, "AFLIX-API ERR =" + url, e);
           return super.shouldInterceptRequest(view, request);
         }
+      }
+
+      /* Byse (embed 9anime) : injection d'un shim d'auto-clic sur le
+       * bouton "verifier que vous etes humain" dans la page embed.
+       * Les sous-ressources (JS/API/fingerprint) passent en chargement
+       * direct pour conserver le fingerprint navigateur. */
+      if (host.contains("gn1r5n.org")) {
+        if (accept.startsWith("text/html") && path.startsWith("/e/")) {
+          ALog.d(_TAG, "BYSE EMBED INJECT = " + url);
+          try {
+            AnimeApi.Http http = new AnimeApi.Http(url);
+            for (Map.Entry<String, String> header :
+                request.getRequestHeaders().entrySet()) {
+              http.addHeader(header.getKey(), header.getValue());
+            }
+            http.execute();
+            if (http.getResponseCode() == 200) {
+              http.body.write(
+                  ("<script>" + byseInjectString + "</script>").getBytes());
+              return new WebResourceResponse(http.ctype[0], http.ctype[1],
+                  new ByteArrayInputStream(http.body.toByteArray()));
+            }
+          } catch (Exception ignored) {
+          }
+          return aApi.badRequest;
+        }
+        /* Sous-ressources Byse : chargement direct */
+        return super.shouldInterceptRequest(view, request);
       }
 
       /* Hebergeurs krussdomi/megaup/megaf : injection du player +

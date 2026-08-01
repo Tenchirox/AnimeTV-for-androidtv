@@ -8327,38 +8327,47 @@ const vtt={
       }
     }
   },
-  translate_text:function(text, lang, cb, marker){
+  translate_text:function(text, lang, cb, marker, retry){
     marker = marker || '__SUBSPLIT__';
+    retry = retry || 0;
+    /* Garde anti-vide : pas de requete reseau pour un texte vide,
+       sinon on boucle a l'infini en retry (spam "Empty translation"). */
+    if (!text || !(text+'').trim()){
+      cb(text);
+      return;
+    }
     // Ensures that the marker will not be changed by Google Translate
     var safeText = text.replace(new RegExp(marker, 'g'), marker + '_');
     var translate_url = 'https://translate.google.com/m?tl=' + lang + '&sl=en&q=' + encodeURIComponent(safeText);
     $ap(translate_url, function(r){
+      function retryOnce(){
+        /* Limite de retry : 3 tentatives puis on abandonne proprement */
+        if (retry>=3){ cb(text); return; }
+        setTimeout(function() {
+          vtt.translate_text(text, lang, cb, marker, retry+1);
+        }, 1000);
+      }
       if (r.ok){
         try{
           var l=document.createElement('div');
           l.innerHTML=r.responseText;
-          var txts=l.querySelector('div.result-container').outerText+'';
-          if (!txts) {
+          var rc=l.querySelector('div.result-container');
+          var txts=rc?(rc.outerText+''):'';
+          if (!txts || !txts.trim()) {
             console.warn("Empty translation received");
-            setTimeout(function() {
-              vtt.translate_text(text, lang, cb, marker); // Try again
-            }, 1000);
+            retryOnce();
             return;
           }
           cb(txts);
         }
         catch(e){
           console.error("Translation error:", e);
-          setTimeout(function() {
-            vtt.translate_text(text, lang, cb, marker); // Try again
-          }, 1000);
+          retryOnce();
         }
       }
       else {
         console.error("Translation request failed");
-        setTimeout(function() {
-          vtt.translate_text(text, lang, cb, marker); // Try again
-        }, 1000);
+        retryOnce();
       }
     });
   },
