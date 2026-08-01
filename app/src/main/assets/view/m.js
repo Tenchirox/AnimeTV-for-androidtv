@@ -9430,9 +9430,9 @@ const pb={
     'keyboard_voice'
   ],
   cfgscale_name:[
-    'Normal',
-    'Cover',
-    'Stretch'
+    'Stretch',
+    'Fit',
+    'Cover'
   ],
   cfgquality_name:[
     "Auto",
@@ -13363,6 +13363,8 @@ const pb={
     //if (/*!pb.cfg_data.html5player&&*/!__SD6){
       pb.pb_settings._s_quality=$n('div','',{action:'*quality'},pb.pb_settings.P,'<c>hd</c> <span>Auto</span>');
     //}
+    /* Aspect ratio : Stretch (defaut) / Fit (centre) / Cover (zoom) */
+    pb.pb_settings._s_scale=$n('div','',{action:'*scale'},pb.pb_settings.P,'<c>aspect_ratio</c> <span>Stretch</span>');
 
     if (!__SD3&&!__SD5/*&&!__SD6*/){
       // pb.pb_settings._s_hardsub=$n('div','',{action:'*hardsub'},pb.pb_settings.P,'<c>clear</c> HARD');

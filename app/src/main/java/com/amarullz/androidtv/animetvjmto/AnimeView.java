@@ -171,6 +171,9 @@ public class AnimeView extends WebViewClient {
   public boolean videoStatIsPlaying = false;
   public int videoStatScaleType = 0;
   public String videoStatCurrentUrl = "";
+  /* Ratio largeur/hauteur de la video courante (0 = inconnu). Mis a jour
+   * dans onVideoSizeChanged, utilise pour les modes Fit/Cover (letterbox). */
+  public float videoAspectRatio = 0f;
 
   public AnimeView(Activity activity) {
     this.activity = activity;
@@ -502,7 +505,12 @@ public class AnimeView extends WebViewClient {
     }
   }
 
-  /** Definit le type d'agrandissement video (0=FIT, 1=ZOOM, 2=FILL). */
+  /**
+   * Definit le type d'agrandissement video :
+   *   0 = Stretch (remplit l'ecran, sans contrainte de ratio) [defaut/actuel]
+   *   1 = Fit     (letterbox centre, ratio respecte)
+   *   2 = Cover   (remplit en rognant, ratio respecte)
+   */
   public void videoViewSetScale(int type) {
     videoStatScaleType = type;
     activity.runOnUiThread(() -> {
@@ -510,14 +518,21 @@ public class AnimeView extends WebViewClient {
         return;
       }
       switch (type) {
-        case 1:
+        case 1: /* Fit : letterbox centre */
+          if (videoAspectRatio > 0f) {
+            videoFrame.setAspectRatio(videoAspectRatio);
+          }
+          videoFrame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
+          break;
+        case 2: /* Cover : remplit en rognant */
+          if (videoAspectRatio > 0f) {
+            videoFrame.setAspectRatio(videoAspectRatio);
+          }
           videoFrame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
           break;
-        case 2:
+        default: /* 0 = Stretch : remplit, pas de contrainte de ratio */
+          videoFrame.setAspectRatio(0f);
           videoFrame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FILL);
-          break;
-        default:
-          videoFrame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
           break;
       }
     });
@@ -561,14 +576,16 @@ public class AnimeView extends WebViewClient {
 
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
-      /* Ne PAS appeler setAspectRatio ici : sans ratio defini, la
-       * TextureView (MATCH_PARENT) remplit l'ecran (comportement d'origine
-       * attendu). Forcer le ratio provoquerait un letterbox (bandes noires)
-       * en mode RESIZE_MODE_FIT. On se contente de transmettre la taille
-       * au JS. */
-      ALog.d(_TAG, "onVideoSizeChanged = " + videoSize.width + "x" +
-          videoSize.height);
-      setVideoSize(videoSize.width, videoSize.height);
+      int w = videoSize.width;
+      int h = videoSize.height;
+      ALog.d(_TAG, "onVideoSizeChanged = " + w + "x" + h);
+      /* Memorise le ratio pour les modes Fit/Cover, puis reapplique le mode
+       * d'agrandissement courant (le ratio devient disponible). */
+      if (w > 0 && h > 0) {
+        videoAspectRatio = (w * videoSize.pixelWidthHeightRatio) / h;
+        videoViewSetScale(videoStatScaleType);
+      }
+      setVideoSize(w, h);
     }
   }
 
