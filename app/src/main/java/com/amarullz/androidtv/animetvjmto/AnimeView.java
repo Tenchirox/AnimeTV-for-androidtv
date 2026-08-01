@@ -49,6 +49,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.HttpDataSource;
@@ -555,6 +556,21 @@ public class AnimeView extends WebViewClient {
     @Override
     public void onRenderedFirstFrame() {
       initVideoTracks();
+    }
+
+    @Override
+    public void onVideoSizeChanged(VideoSize videoSize) {
+      /* Dimensionne l'AspectRatioFrameLayout selon la video. Sans ce
+       * listener, la frame garde une taille par defaut (surface qui peut
+       * ne pas s'afficher alors que l'audio joue). */
+      int w = videoSize.width;
+      int h = videoSize.height;
+      ALog.d(_TAG, "onVideoSizeChanged = " + w + "x" + h);
+      if (videoFrame != null && w > 0 && h > 0) {
+        float ratio = (w * videoSize.pixelWidthHeightRatio) / h;
+        videoFrame.setAspectRatio(ratio);
+      }
+      setVideoSize(w, h);
     }
   }
 
