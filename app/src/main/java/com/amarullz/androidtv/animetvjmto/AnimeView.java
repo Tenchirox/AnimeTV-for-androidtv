@@ -359,10 +359,16 @@ public class AnimeView extends WebViewClient {
 
     videoFrame = new AspectRatioFrameLayout(activity);
     videoView = new TextureView(activity);
-    videoFrame.addView(videoView, new FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-    videoLayout.addView(videoFrame, new FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    /* Gravity.CENTER : en mode Fit (letterbox), la video doit rester centree
+     * (sinon elle est alignee a gauche/haut). */
+    FrameLayout.LayoutParams viewLp = new FrameLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+        android.view.Gravity.CENTER);
+    videoFrame.addView(videoView, viewLp);
+    FrameLayout.LayoutParams frameLp = new FrameLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+        android.view.Gravity.CENTER);
+    videoLayout.addView(videoFrame, frameLp);
 
     videoPlayer.setVideoTextureView(videoView);
     videoPlayer.addListener(new PlayerEventListener());
