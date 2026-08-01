@@ -29,6 +29,7 @@ const __SD7=(__SD==7);
 const __SD8=(__SD==8);
 const __SD9=(__SD==9);
 const __SD10=(__SD==10);
+const __SD11=(__SD==11);
 
 // pahe anime => document.querySelectorAll('.content-wrapper .tab-content .row div a[title]');
 
@@ -45,7 +46,7 @@ var _ISELECTRON=('isElectron' in _JSAPI);
 
 const __SOURCE_NAME=[
   'AnimeKAI', 'Anix', 'Aniwatch', 'Aniwatch', 'Animeflix', 'KickAss', 'Gojo', 'Miruro', 'Everything',
-  'MegaPlay'
+  'MegaPlay', '9anime'
 ];
 // https://kickass-anime.ro/
 const __SOURCE_DOMAINS=[
@@ -58,12 +59,13 @@ const __SOURCE_DOMAINS=[
   ['api.gojo.wtf'],
   ['www.miruro.tv'],
   ['everything'], /* SD9: virtual aggregate source */
-  ['megaplay.buzz'] /* SD10: AniList catalog + megaplay streams */
+  ['megaplay.buzz'], /* SD10: AniList catalog + megaplay streams */
+  ['9anime.tech'] /* SD11: 9anime.tech (HTML + Byse embed) */
 ];
 
 /* Sources actives : AnimeKAI(1), Anix(2), Animeflix(5) et Gojo(7) sont
    mortes et masquees de la liste de selection (les index sont preserves) */
-const __SOURCE_ACTIVE=[10,6,3,8,9];
+const __SOURCE_ACTIVE=[10,6,3,8,11,9];
 const __SOURCE_ACTIVE_NAME=__SOURCE_ACTIVE.map(function(s){return __SOURCE_NAME[s-1];});
 
 /* video res change */
@@ -1888,6 +1890,299 @@ function Conf_USER_AGENT(){
   return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'+
     ' (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 }
+
+/* =====================================================================
+ * 9ANIME SOURCE (SD11) - 9anime.tech
+ * Catalogue/episodes : scraping HTML propre (.ani items / page watch)
+ * Streams            : embeds Byse (gn1r5n.org) charges dans l'iframe.
+ *                      Byse impose un token fingerprint genere par son
+ *                      propre JS -> l'iframe tourne dans la WebView et
+ *                      le proxy intercepte /api/videos/stream/ pour
+ *                      recuperer le m3u8 (meme principe que megacloud).
+ * ===================================================================== */
+var ninenime={
+  DOMAIN:'9anime.tech',
+  tipCache:{},
+
+  origin:function(){
+    return {
+      "X-Org-Prox":"https://"+ninenime.DOMAIN,
+      "X-Ref-Prox":"https://"+ninenime.DOMAIN+"/",
+      "X-UA-Prox":Conf_USER_AGENT()
+    };
+  },
+
+  getAnimeId:function(url){
+    var ux=(url+'').split('#');
+    return ux[0];
+  },
+  getFilterOrigin:function(){
+    return ninenime.origin();
+  },
+  /* recherche HTML maison */
+  getFilterUrl:function(q,genres,sort,page,ses,year){
+    return '/search?keyword='+enc(q)+(page&&page>1?'&page='+page:'');
+  },
+
+  /* Parse les items d'une liste (.ani items .item) - catalogue & recherche */
+  parseItems:function(v){
+    var rd=[];
+    try{
+      var h=document.createElement('div');
+      h.innerHTML=v;
+      var it=h.querySelectorAll('.ani.items .item');
+      for (var i=0;i<it.length;i++){
+        var t=it[i];
+        try{
+          var d={};
+          var poster=t.querySelector('.ani.poster');
+          var a=t.querySelector('.ani.poster a')||poster.querySelector('a');
+          d.url=a.getAttribute('href');
+          if (d.url && d.url.indexOf('http')!=0){
+            d.url='https://'+ninenime.DOMAIN+d.url;
+          }
+          d.tip=poster.getAttribute('data-tip')||d.url.split('/').pop();
+          var img=t.querySelector('.ani.poster img');
+          d.poster=img?img.getAttribute('src'):'';
+          var name=t.querySelector('.info .name');
+          d.title=name?(name.textContent+'').trim():'';
+          try{ d.title_jp=name.getAttribute('data-jp'); }catch(ee){}
+          var es=t.querySelector('.ep-status.sub span');
+          var ed=t.querySelector('.ep-status.dub span');
+          if (es) d.epsub=d.ep=(es.textContent+'').trim();
+          if (ed) d.epdub=(ed.textContent+'').trim();
+          var ty=t.querySelector('.meta .right');
+          d.type=ty?(ty.textContent+'').trim():'';
+          d.eptotal=0;
+          d.adult=false;
+          d.epavail=toInt(d.ep?d.ep:(d.epdub?d.epdub:0));
+          rd.push(d);
+        }catch(e){}
+      }
+      h.innerHTML='';
+    }catch(e){
+      console.log("ERR ninenime.parseItems: "+e);
+    }
+    return rd;
+  },
+  recent_parse:function(v){
+    return ninenime.parseItems(v);
+  },
+
+  /* Extrait les metadonnees + episodes depuis la page /watch/slug-id */
+  parseWatch:function(html){
+    var h=document.createElement('div');
+    h.innerHTML=html;
+    var o={ genres:[] };
+    try{
+      var t=h.querySelector('h1.title');
+      o.title=(t.textContent+'').trim();
+      try{ o.title_jp=t.getAttribute('data-jp'); }catch(e){}
+      var nm=h.querySelector('.info .names');
+      if (nm && !o.title_jp) o.title_jp=(nm.textContent+'').trim();
+      var img=h.querySelector('[itemprop="image"]');
+      o.poster=img?img.getAttribute('src'):'';
+      var syn=h.querySelector('.synopsis .content');
+      o.synopsis=syn?(syn.textContent+'').trim():'';
+      var genreEls=h.querySelectorAll('.meta a[href^="/genre/"]');
+      var glist=[];
+      for (var i=0;i<genreEls.length;i++){
+        var gn=(genreEls[i].textContent+'').trim();
+        glist.push(gn);
+        o.genres.push({ name:gn, val:gn.toLowerCase() });
+      }
+      o.genre=glist.join(', ');
+      var meta=h.querySelectorAll('.meta > div');
+      o.type='TV'; o.status='';
+      for (var j=0;j<meta.length;j++){
+        var txt=(meta[j].textContent+'');
+        if (txt.indexOf('Type:')==0){
+          var ta=meta[j].querySelector('a');
+          o.type=ta?(ta.textContent+'').trim():'TV';
+        }
+        else if (txt.indexOf('Status:')==0){
+          var sa=meta[j].querySelector('a');
+          o.status=sa?(sa.textContent+'').trim():'';
+        }
+      }
+      /* episodes */
+      o.eps=[];
+      var epLinks=h.querySelectorAll('a[data-num]');
+      var seen={};
+      for (var k=0;k<epLinks.length;k++){
+        var en=toInt(epLinks[k].getAttribute('data-num'));
+        if (!en || seen[en]) continue;
+        seen[en]=1;
+        o.eps.push({
+          ep:en,
+          sub:epLinks[k].getAttribute('data-sub')=='1',
+          dub:epLinks[k].getAttribute('data-dub')=='1'
+        });
+      }
+      o.eps.sort(function(a,b){return a.ep-b.ep;});
+    }catch(e){
+      console.log("ERR ninenime.parseWatch: "+e);
+    }
+    h.innerHTML='';
+    return o;
+  },
+
+  /* Recupere les URLs d'embed des serveurs pour un episode donne */
+  parseEpisodeServers:function(html){
+    var out={sub:[],dub:[]};
+    try{
+      var lis=html.match(/<li[^>]*data-url="[^"]+"[^>]*data-server="[^"]+"[^>]*data-type="[^"]+"/g)||[];
+      for (var i=0;i<lis.length;i++){
+        var u=(lis[i].match(/data-url="([^"]+)"/)||[])[1];
+        var srv=(lis[i].match(/data-server="([^"]+)"/)||[])[1];
+        var ty=(lis[i].match(/data-type="([^"]+)"/)||[])[1];
+        if (!u) continue;
+        (ty=='dub'?out.dub:out.sub).push({url:u,server:srv});
+      }
+    }catch(e){}
+    return out;
+  },
+
+  getTooltip:function(id, cb, url, isview){
+    if (!id){
+      var ux=(url+'').split('#');
+      id=ux[0];
+    }
+    if (id in ninenime.tipCache){
+      try{
+        var oval=JSON.parse(ninenime.tipCache[id]);
+        requestAnimationFrame(function(){ cb(oval); });
+        return;
+      }catch(e){}
+    }
+    var page=id;
+    if (page.indexOf('http')!=0){
+      page='https://'+ninenime.DOMAIN+'/watch/'+id;
+    }
+    $ap(page,function(r){
+      var o=null;
+      if (r.ok){
+        try{
+          var w=ninenime.parseWatch(r.responseText);
+          o={
+            url:id,
+            title:w.title,
+            title_jp:w.title_jp?w.title_jp:w.title,
+            synopsis:w.synopsis,
+            genres:w.genres,
+            genre:w.genre,
+            quality:null,
+            ep:w.eps.length,
+            eptotal:w.eps.length,
+            rating:'',
+            ttid:id,
+            format:w.type,
+            poster:w.poster,
+            banner:w.poster,
+            tip:id,
+            status:w.status
+          };
+          ninenime.tipCache[id]=JSON.stringify(o);
+        }catch(e){
+          console.log("ERR ninenime.getTooltip: "+e);
+        }
+      }
+      cb(o);
+    },ninenime.origin());
+  },
+
+  getView:function(url,f){
+    var uid=++_API.viewid;
+    var ux=(url+'').split('#');
+    var uri=ux[0];
+    var ep=1;
+    if (ux.length==2){ ep=ux[1]?toInt(ux[1]):1; }
+    if (!ep){ ep=1; }
+
+    var page=uri;
+    if (page.indexOf('http')!=0){
+      page='https://'+ninenime.DOMAIN+'/watch/'+uri;
+    }
+    ninenime.getTooltip(uri,function(d){
+      if (!d){ f({status:false},uid); return; }
+      var o={
+        "idMal": null,
+        "title": d.title,
+        "title_jp": d.title_jp,
+        "synopsis": d.synopsis,
+        "genres": d.genres,
+        "quality": null,
+        "banner": d.banner,
+        "rating": "",
+        "ttid": d.tip,
+        "url": uri,
+        "poster": d.poster,
+        "status": true,
+        "epavail": d.ep,
+        "epdub": 0,
+        "type": d.format,
+        "genre": d.genre,
+        "info": { "type": {"val":"_"+d.format,"name":d.format}, "rating":"", "quality":null },
+        "ep": [],
+        "epactive": 0,
+        "servers": { dub:[], sub:[], softsub:[] },
+        "streamtype": "sub",
+        "stream_url": {}
+      };
+      for (var i=0;i<d.ep;i++){
+        var n=i+1;
+        var oe={
+          "ep": n,
+          "url": uri+"#"+n,
+          "active": (ep==n),
+          "filler": false,
+          "title": "Episode "+n,
+          "streams": []
+        };
+        if (oe.active){ o.epactive=i; }
+        o.ep.push(oe);
+      }
+      try{ o.ep[o.epactive].active=true; }catch(e){}
+      o.servers.sub=[pb.serverobj('Byse',0)];
+      o.servers.dub=[pb.serverobj('Byse',0)];
+      f(JSON.parse(JSON.stringify(o)),uid);
+    }, uri, true);
+
+    return uid;
+  },
+
+  /* Charge l'embed Byse dans l'iframe (le proxy capte /api/videos/stream/) */
+  loadVideo:function(dt,f){
+    var oe=dt.ep[dt.epactive];
+    if (!oe){ f(null); return; }
+    var type="sub";
+    if (_API.currentStreamType==2 || pb.cfg_data.dubaudio){ type="dub"; }
+    dt.streamtype=type;
+
+    var base=dt.url;
+    if (base.indexOf('http')!=0){ base='https://'+ninenime.DOMAIN+'/watch/'+base; }
+    var epPage=base+'/ep-'+oe.ep;
+    $ap(epPage,function(r){
+      if (!r.ok){ f(null); return; }
+      var srv=ninenime.parseEpisodeServers(r.responseText);
+      var list=(type=='dub'&&srv.dub.length)?srv.dub:srv.sub;
+      if (!list.length && srv.sub.length){ list=srv.sub; }
+      if (!list.length){ f(null); return; }
+      /* prefere Byse (gn1r5n.org), playmogo est mort */
+      var pick=null;
+      for (var i=0;i<list.length;i++){
+        if (list[i].url.indexOf('gn1r5n.org')>-1){ pick=list[i]; break; }
+      }
+      if (!pick){ pick=list[0]; }
+      /* l'app charge stream_vurl dans l'iframe du lecteur */
+      dt.stream_vurl=pick.url;
+      dt.stream_provider=pick.server;
+      f({ embed:true, url:pick.url });
+    },ninenime.origin());
+  },
+
+  subtitle_origin:null
+};
 
 /* KICAKASSANIME SOURCE */
 var kaas={
@@ -5510,6 +5805,9 @@ const _API={
     else if (__SD10){
       return megaplay.getAnimeId(url);
     }
+    else if (__SD11){
+      return ninenime.getAnimeId(url);
+    }
     else{
       var url_parse=url.split('/');
       if (url_parse.length>=5){
@@ -5580,6 +5878,8 @@ const _API={
       return miruro.getFilterOrigin();
     else if (__SD10)
       return megaplay.getFilterOrigin();
+    else if (__SD11)
+      return ninenime.getFilterOrigin();
     return null;
   },
 
@@ -5599,6 +5899,9 @@ const _API={
     }
     else if (__SD10){
       return megaplay.getFilterUrl(q,genres,sort,page,ses,year);
+    }
+    else if (__SD11){
+      return ninenime.getFilterUrl(q,genres,sort,page,ses,year);
     }
     else if (!__SD3 && !__SD5){
       var qv=[];
@@ -6044,6 +6347,9 @@ const _API={
     }
     else if (__SD10){
       return megaplay.getView(url,f);
+    }
+    else if (__SD11){
+      return ninenime.getView(url,f);
     }
     else if (__SDKAI){
       return kai.getView(url,f);
@@ -6794,6 +7100,9 @@ const _API={
     }
     else if (__SD10){
       return megaplay.getTooltip(id, cb, url, 0);
+    }
+    else if (__SD11){
+      return ninenime.getTooltip(id, cb, url, 0);
     }
 
     if (!id && url){
@@ -10188,6 +10497,73 @@ const pb={
 
   video_tmp_start_pos:0,
 
+  /* Lecteur embed Byse (9anime / SD11).
+     Byse lit document.referrer (= 9anime.tech chez nous, donc valide).
+     On ecoute ses postMessage 'byse-progress' pour la progression, et on
+     repond a 'moonwalk-embed-context-request' si besoin. */
+  init_video_byse:function(){
+    pb.video_tmp_start_pos=pb.startpos_val;
+    pb.data.vizm3u8=null;
+    var readySent=false;
+    function markReady(){
+      if (readySent) return;
+      readySent=true;
+      if (pb.state<2){
+        pb.vid_event('ready',0);
+        if (pb.vid){ pb.vid.classList.add('ready'); }
+      }
+    }
+    _API.setMessage(function(e){
+      if (pb.preload_video_started) return;
+      if (!e) return;
+      var raw=e.data;
+      var pd=null;
+      try{ pd=(typeof raw=='string')?JSON.parse(raw):raw; }catch(x){ return; }
+      if (!pd) return;
+      /* protocole generique de l'app (au cas ou) */
+      if ('vcmd' in pd){ pb.vid_event(pd.vcmd,pd.val); return; }
+      if ('event' in pd && pd.event=='PLAYER_READY'){ markReady(); return; }
+      if (!pd.type) return;
+      if (pd.type=='moonwalk-embed-context-request'){
+        try{
+          pb.vid.contentWindow.postMessage(JSON.stringify({
+            type:'moonwalk-embed-context',
+            host:'https://'+ninenime.DOMAIN,
+            referrer:'https://'+ninenime.DOMAIN+'/',
+            parentFrame:'https://'+ninenime.DOMAIN+'/',
+            details:null
+          }),'*');
+        }catch(x){}
+        markReady();
+        return;
+      }
+      if (pd.type=='byse-progress'){
+        try{
+          var pos=toInt(pd.timestamp);
+          var dur=toInt(pd.duration);
+          markReady();
+          if (dur>0){
+            pb.vid_event('time',{position:pos,duration:dur});
+          }
+        }catch(x){}
+        return;
+      }
+    });
+    pb.vid_cmd_cb=function(c,v){
+      try{
+        pb.vid.contentWindow.postMessage(JSON.stringify({vcmd:c,val:v}),'*');
+      }catch(x){}
+    };
+    pb.vid_get_time_cb=function(){
+      return { position:pb.vid_stat.pos, duration:pb.vid_stat.duration };
+    };
+    pb.pb_vid.innerHTML='';
+    pb.vid=$n('iframe','',{src:pb.data.stream_vurl,frameborder:'0',allowfullscreen:'true'},pb.pb_vid,'');
+    /* filet de securite : si aucun event n'arrive, on leve l'etat de
+       chargement pour ne pas rester bloque sur LOADING SERVER */
+    setTimeout(markReady,9000);
+  },
+
   init_video_vidcloud:function(){
     if ((pb.cfg('server')==1)&&(pb.data.vizm3u8)){
       console.log("ATVLOG VIZCLOUD-M3U8 GOT_DATA => "+pb.startpos_val);
@@ -10369,6 +10745,20 @@ const pb={
         pb.flix_load_video(pb.data, true, function(){
           pb.updateStreamTypeInfo();
           pb.flix_play_video();
+        });
+      }
+      else if (__SD11){
+        ninenime.loadVideo(pb.data, function(v){
+          pb.updateStreamTypeInfo();
+          if (!v){
+            pb.playback_error(
+              'PLAYBACK ERROR',
+              "Loading video from source failed.\nThe Byse server may be unavailable."
+            );
+            return;
+          }
+          /* l'embed Byse se charge dans l'iframe du lecteur */
+          pb.init_video_byse();
         });
       }
       else if (__SD10){
@@ -14378,6 +14768,9 @@ const home={
     else if (__SD8){
       rd=miruro.recent_parse(v);
     }
+    else if (__SD11){
+      rd=ninenime.recent_parse(v);
+    }
     else if (__SD5){
       // Hi Anime
       rd=home.flix_parse(v);
@@ -14572,7 +14965,7 @@ const home={
     $a(g._ajaxurl+''+load_page,function(r){
       if (r.ok){
         try{
-          if (__SD3||__SD5||__SD6||__SD7||__SD8){
+          if (__SD3||__SD5||__SD6||__SD7||__SD8||__SD11){
             home.recent_parse(g,r.responseText);
           }
           else{
@@ -15275,7 +15668,7 @@ const home={
       el.__last_touch=$tick()+5000;
     });
 
-    if (__SD6||pb.cfg_data.alisthomess||(__SD==2)||__SD7||__SD8||__SD9||__SD10){
+    if (__SD6||pb.cfg_data.alisthomess||(__SD==2)||__SD7||__SD8||__SD9||__SD10||__SD11){
       home.home_anilist_load();
       return;
     }
@@ -15728,6 +16121,16 @@ const home={
          ajoutees plus bas via homepage.push) */
       homepage=[];
     }
+    else if (__SD11){
+      /* 9anime.tech : catalogue HTML scrape */
+      homepage=[
+        ["recent",'/browse/new?page=', "Recently Added", true],
+        ["ongoing",'/browse/ongoing?page=', "Ongoing", true],
+        ["popular",'/browse/popular?page=', "Popular", true],
+        ["tv",'/browse/tv?page=', "TV Series", false],
+        ["movies",'/browse/movies?page=', "Movies", false]
+      ];
+    }
     else if (__SD8){
       miruro.provider=miruro.getProvider();
       // miruro
@@ -15897,7 +16300,7 @@ const home={
       }
 
       if (c=='source_domain'){
-        if (elm._arg==9 || elm._arg==10){
+        if (elm._arg==9 || elm._arg==10 || elm._arg==11){
           /* pas de choix de domaine pour ces sources */
           _API.showToast("No domain selection for this source");
         }
@@ -17802,6 +18205,9 @@ const home={
         console.log(["KAAS SEARCH",v]);
         rd=kaas.recentParse(v);
         console.log(["KAAS SEARCH RES",rd]);
+      }
+      else if (__SD11){
+        rd=ninenime.parseItems(v);
       }
       else if (__SD==1){
         var h=$n('div','','',null,v);
@@ -21286,7 +21692,7 @@ query ($weekStart: Int, $weekEnd: Int, $page: Int, $perPage: Int) {
       
       
       kw=dmedia.title.romaji;
-      if (__SD3||__SD6){
+      if (__SD3||__SD6||__SD11){
         kw2=kw;
         kw=dmedia.title.english;
         if (!kw){
