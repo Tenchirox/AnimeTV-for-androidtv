@@ -2101,31 +2101,43 @@ public class AnimeView extends WebViewClient {
 
     @JavascriptInterface
     public boolean videoIsPlaying() {
-      try {
-        return videoPlayer.isPlaying();
-      } catch (Exception e) {
-        return false;
-      }
+      /* ExoPlayer n'est PAS thread-safe : il doit etre interroge depuis le
+       * thread qui l'a cree (main thread). Appeler isPlaying() depuis le
+       * thread JS bridge leve IllegalStateException -> false. Sans
+       * runOnUiThreadWait, le JS ne detecte jamais la lecture et n'ajoute
+       * pas playback_on_video -> la video reste cachee (audio sans image). */
+      runOnUiThreadWait(() -> {
+        try {
+          videoIsPlaying = videoPlayer.isPlaying();
+        } catch (Exception ignored) {
+        }
+      });
+      return videoIsPlaying;
     }
 
     @JavascriptInterface
     public int videoGetDuration() {
-      try {
-        long duration = videoPlayer.getDuration();
-        return duration > 0 ? (int) duration : 0;
-      } catch (Exception e) {
-        return 0;
-      }
+      runOnUiThreadWait(() -> {
+        try {
+          long duration = videoPlayer.getDuration();
+          /* TIME_UNSET (negatif) -> 0 au lieu d'un cast absurde */
+          videoDuration = duration > 0 ? (int) duration : 0;
+        } catch (Exception ignored) {
+        }
+      });
+      return videoDuration;
     }
 
     @JavascriptInterface
     public int videoGetPosition() {
-      try {
-        long position = videoPlayer.getCurrentPosition();
-        return position > 0 ? (int) position : 0;
-      } catch (Exception e) {
-        return 0;
-      }
+      runOnUiThreadWait(() -> {
+        try {
+          long position = videoPlayer.getCurrentPosition();
+          videoPosition = position > 0 ? (int) position : 0;
+        } catch (Exception ignored) {
+        }
+      });
+      return videoPosition;
     }
 
     @JavascriptInterface
@@ -2136,13 +2148,16 @@ public class AnimeView extends WebViewClient {
     @JavascriptInterface
     public int videoBufferPercent() {
       if (videoStatCurrentUrl.equals("")) {
+        videoLastBufferPercent = 0;
         return -1;
       }
-      try {
-        return videoPlayer.getBufferedPercentage();
-      } catch (Exception e) {
-        return 0;
-      }
+      runOnUiThreadWait(() -> {
+        try {
+          videoLastBufferPercent = videoPlayer.getBufferedPercentage();
+        } catch (Exception ignored) {
+        }
+      });
+      return videoLastBufferPercent;
     }
 
     @JavascriptInterface
