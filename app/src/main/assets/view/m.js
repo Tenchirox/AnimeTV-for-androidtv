@@ -14289,10 +14289,12 @@ const pb={
  * Everything (SD9) : agrège les catalogues de toutes les sources
  * ===================================================================== */
 var everything={
-  /* Sources actives : seul KickAss (SD6) a une API accessible via proxy.
-     Aniwatch(3)=Cloudflare timeout, Gojo(7)=domaine mort, Miruro(8)=pas d'endpoint. */
-  sources:[6],
-  source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro'},
+  /* Sources actives interrogees via proxy :
+     SD6 KickAss (API JSON) + SD11 9anime (HTML). Aniwatch(3)=Cloudflare
+     timeout, Gojo(7)=mort, Miruro(8)=pas d'endpoint. MegaPlay(10)=AniList,
+     deja couvert par la recherche AniList et les lignes AniList generiques. */
+  sources:[6,11],
+  source_names:{3:'Aniwatch',6:'KickAss',7:'Gojo',8:'Miruro',10:'MegaPlay',11:'9anime'},
 
   /* Parse une reponse source → tableau unifie {title,poster,url,tip,ep,type,source} */
   parseSource:function(sd, text){
@@ -14381,6 +14383,14 @@ var everything={
           }
         }
       }
+      else if (sd==11){
+        /* 9anime : HTML (.ani items) via ninenime.parseItems */
+        var items=ninenime.parseItems(text);
+        for (var i=0;i<items.length;i++){
+          items[i].source=11;
+          rd.push(items[i]);
+        }
+      }
       else if (sd==8){
         /* Miruro : JSON */
         var j=JSON.parse(text);
@@ -14436,7 +14446,7 @@ var everything={
   },
 
   /* Domaines des sources (pour construire les URLs completes via $ap) */
-  source_domains:{3:'aniwatchtv.to',6:'kaa.lt',7:'api.gojo.wtf',8:'www.miruro.tv'},
+  source_domains:{3:'aniwatchtv.to',6:'kaa.lt',7:'api.gojo.wtf',8:'www.miruro.tv',11:'9anime.tech'},
 
   /* Headers Origin/Referer pour chaque source (le proxy les utilise) */
   source_headers:function(sd){
@@ -14463,6 +14473,11 @@ var everything={
           if (mode=='recent') url='https://'+dom+'/api/show/recent?type=sub&page='+page;
           else if (mode=='trending') url='https://'+dom+'/api/show/trending?page='+page;
           else if (mode=='popular') url='https://'+dom+'/api/show/popular?page='+page;
+        }
+        else if (sd==11){
+          if (mode=='recent') url='https://'+dom+'/browse/new?page='+page;
+          else if (mode=='trending') url='https://'+dom+'/browse/popular?page='+page;
+          else if (mode=='popular') url='https://'+dom+'/browse/popular?page='+page;
         }
         if (!url){
           pending--;
@@ -14512,6 +14527,7 @@ var everything={
         }
         else if (sd==7) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
         else if (sd==8) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+'&page='+page;
+        else if (sd==11) url='https://'+dom+'/search?keyword='+encodeURIComponent(kw)+(page>1?'&page='+page:'');
         if (!url){
           done();
           return;
@@ -16171,17 +16187,17 @@ const home={
           home.recent_init(el, function(rc){
             everything.loadPage(rc,'recent');
           });
-        }, "Recently Updated - KickAss", true],
+        }, "Recently Updated - All Sources", true],
         ["everything_trending",function(el){
           home.recent_init(el, function(rc){
             everything.loadPage(rc,'trending');
           });
-        }, "Trending - KickAss", true],
+        }, "Trending - All Sources", true],
         ["everything_popular",function(el){
           home.recent_init(el, function(rc){
             everything.loadPage(rc,'popular');
           });
-        }, "Popular - KickAss", true]
+        }, "Popular - All Sources", true]
       ];
     }
     else{
