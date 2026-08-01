@@ -21269,8 +21269,7 @@ query ($weekStart: Int, $weekEnd: Int, $page: Int, $perPage: Int) {
         });
         return;
       }
-      else if (__SD7||__SD8){
-        console.warn(dmedia);
+      else if (__SD7||__SD8||__SD10){
         requestAnimationFrame(function(){
           var o=[{
             url:dmedia.id+'',
@@ -21300,7 +21299,7 @@ query ($weekStart: Int, $weekEnd: Int, $page: Int, $perPage: Int) {
       console.log(JSON.stringify(d));
     }
     else{
-      if (__SD7||__SD8){
+      if (__SD7||__SD8||__SD10){
         gojo.getFromMAL(d.node.id,function(r){
           if (r && r.data && r.data.Media){
             var dm=r.data.Media;
@@ -21374,7 +21373,7 @@ query ($weekStart: Int, $weekEnd: Int, $page: Int, $perPage: Int) {
             slkw
           ]);
           for (var i=0;i<rd.length;i++){
-            if (__SD5||__SD7||__SD8){
+            if (__SD5||__SD7||__SD8||__SD10){
               if (isanilist){
                 var ndmedia=null;
                 if (isanilist==2){
