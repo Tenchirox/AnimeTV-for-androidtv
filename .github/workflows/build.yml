@@ -23,8 +23,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # Le runner ubuntu-latest embarque deja le SDK Android (cmdline-tools
+      # preinstalles). L'action android-actions/setup-android@v3 tente de
+      # retélécharger une version obsolete des cmdline-tools (HTTP 404).
+      # On utilise donc le sdkmanager preinstalle pour accepter les licences
+      # et s'assurer que la plateforme compileSdk=35 est presente.
+      - name: Setup Android SDK (preinstalled)
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
