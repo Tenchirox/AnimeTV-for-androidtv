@@ -10569,7 +10569,10 @@ const pb={
       return { position:pb.vid_stat.pos, duration:pb.vid_stat.duration };
     };
     pb.pb_vid.innerHTML='';
-    pb.vid=$n('iframe','',{src:pb.data.stream_vurl,frameborder:'0',allowfullscreen:'true'},pb.pb_vid,'');
+    /* classe 'byse' : autorise pointer-events pour que l'utilisateur puisse
+       cliquer le bouton play (l'autoplay exige un vrai geste, le clic JS
+       ne suffit pas). Byse fournit ses propres controles. */
+    pb.vid=$n('iframe','byse',{src:pb.data.stream_vurl,frameborder:'0',allowfullscreen:'true'},pb.pb_vid,'');
     /* filet de securite : si aucun event n'arrive, on leve l'etat de
        chargement pour ne pas rester bloque sur LOADING SERVER */
     setTimeout(markReady,9000);

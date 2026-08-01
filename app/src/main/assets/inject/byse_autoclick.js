@@ -30,6 +30,8 @@
   function scan(){
     /* 1) selecteurs de boutons/overlays de lecture/verification */
     var sels=[
+      '.jw-icon-playback','.jw-display-icon-container','[aria-label*="Play"]',
+      '[aria-label*="play"]','.jwplayer [role="button"]',
       'button','[role="button"]','.vjs-big-play-button','.play-button',
       '.play','#play','[class*="big-play"]','[class*="play-btn"]',
       '[class*="verify"]','[class*="captcha"]','[class*="human"]',

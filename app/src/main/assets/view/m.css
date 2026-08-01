@@ -2582,6 +2582,13 @@ c.loader {
   will-change: opacity;
 }
 
+/* Lecteur embed Byse (9anime) : l'autoplay exige un vrai geste utilisateur,
+   on reactive les pointer-events pour que le bouton play soit cliquable.
+   Byse fournit ses propres controles de lecture. */
+#pb_vid iframe.byse {
+  pointer-events: all !important;
+}
+
 #pb_vid iframe.ready {
   opacity: 1;
 }
