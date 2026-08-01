@@ -7540,10 +7540,21 @@ const _API={
     }
   },
 
-  /* Fetch animetv-info last message */
-  discord_info_url:"https://raw.githubusercontent.com/amarullz/kaicodex/refs/heads/main/shr/tools/home-info.json",
+  /* Fetch animetv-info last message.
+   * La banniere d'annonce est lue depuis le news.json du repo (modifiable
+   * sans sortir d'APK), avec repli sur la copie locale bundlee
+   * (assets/view/news.json) si la recup distante echoue (hors-ligne). */
+  discord_info_url:"https://raw.githubusercontent.com/Tenchirox/AnimeTV-for-androidtv/master/news.json",
+  discord_info_fallback:"/__view/news.json",
   discordFetch:function(cb){
-    $ap(_API.discord_info_url+"?"+$tick(), cb);
+    $ap(_API.discord_info_url+"?"+$tick(), function(r){
+      if (r.ok){
+        cb(r);
+        return;
+      }
+      /* Repli local si le fetch distant echoue */
+      $ap(_API.discord_info_fallback+"?"+$tick(), cb);
+    });
   }
 };
 

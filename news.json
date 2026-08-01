@@ -1,0 +1,10 @@
+[
+  {
+    "content": "**AnimeTV 6.7.6** — Bienvenue ! Nouvelles sources : **MegaPlay** (catalogue AniList + streams 1080p avec sous-titres et skip intro/outro), **9anime**, et **Everything** (agrégateur multi-sources). Nouveau bouton **Aspect Ratio** (Stretch / Fit / Cover) dans le player.",
+    "timestamp": "2026-08-01T00:00:00Z"
+  },
+  {
+    "content": "Correctifs 6.7.6 : lecture vidéo (image manquante), plein écran, traduction des synopsis, et stabilite des sources. Sources mortes (Gojo) retirees.",
+    "timestamp": "2026-08-01T00:00:00Z"
+  }
+]
