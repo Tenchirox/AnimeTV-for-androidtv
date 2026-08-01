@@ -21,6 +21,7 @@ import android.text.format.DateFormat;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -116,7 +117,7 @@ public class AnimeView extends WebViewClient {
 
   public final Activity activity;
   public final WebView webView;
-  public SurfaceView videoView = null;
+  public TextureView videoView = null;
   public ExoPlayer videoPlayer = null;
   public final ImageView splash;
   public final FrameLayout videoLayout;
@@ -354,13 +355,13 @@ public class AnimeView extends WebViewClient {
         .build();
 
     videoFrame = new AspectRatioFrameLayout(activity);
-    videoView = new SurfaceView(activity);
+    videoView = new TextureView(activity);
     videoFrame.addView(videoView, new FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     videoLayout.addView(videoFrame, new FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-    videoPlayer.setVideoSurfaceView(videoView);
+    videoPlayer.setVideoTextureView(videoView);
     videoPlayer.addListener(new PlayerEventListener());
   }
 
