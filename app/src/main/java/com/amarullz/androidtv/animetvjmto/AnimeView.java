@@ -2191,6 +2191,36 @@ public class AnimeView extends WebViewClient {
       ALog.d("ATVLOG_MEDIA", "mediaSetMeta=" + title);
       mainActivity.updateMediaMeta();
     }
+
+    /**
+     * Dispatch un vrai evenement tactile (tap) sur la WebView.
+     * Contrairement a un el.click() JS, un MotionEvent est un vrai geste
+     * utilisateur : il permet de satisfaire la politique autoplay (bouton
+     * play de JW Player / verification Byse). Coordonnees en pixels CSS.
+     */
+    @JavascriptInterface
+    public void dispatchTouch(final float cssX, final float cssY) {
+      activity.runOnUiThread(() -> {
+        try {
+          float density = activity.getResources().getDisplayMetrics().density;
+          final float x = cssX * density;
+          final float y = cssY * density;
+          ALog.d(_TAG, "dispatchTouch css=(" + cssX + "," + cssY +
+              ") px=(" + x + "," + y + ") density=" + density);
+          long now = android.os.SystemClock.uptimeMillis();
+          android.view.MotionEvent down = android.view.MotionEvent.obtain(
+              now, now, android.view.MotionEvent.ACTION_DOWN, x, y, 0);
+          android.view.MotionEvent up = android.view.MotionEvent.obtain(
+              now, now + 60, android.view.MotionEvent.ACTION_UP, x, y, 0);
+          webView.dispatchTouchEvent(down);
+          webView.dispatchTouchEvent(up);
+          down.recycle();
+          up.recycle();
+        } catch (Exception e) {
+          ALog.e(_TAG, "dispatchTouch ERR", e);
+        }
+      });
+    }
   }
 
   /* ------------------------------------------------------------------

@@ -10559,6 +10559,18 @@ const pb={
         }catch(x){}
         return;
       }
+      if (pd.type=='byse-tap'){
+        /* le shim a localise le bouton play/verify : on dispatch un vrai
+           geste tactile via Java (autoplay exige un geste reel) */
+        try{
+          var tx=parseFloat(pd.x), ty=parseFloat(pd.y);
+          if (isFinite(tx) && isFinite(ty)){
+            console.log("BYSE TAP @ "+tx+","+ty);
+            _JSAPI.dispatchTouch(tx, ty);
+          }
+        }catch(x){}
+        return;
+      }
     });
     pb.vid_cmd_cb=function(c,v){
       try{
