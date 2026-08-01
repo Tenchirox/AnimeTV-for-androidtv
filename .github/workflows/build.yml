@@ -26,12 +26,17 @@ jobs:
       # Le runner ubuntu-latest embarque deja le SDK Android (cmdline-tools
       # preinstalles). L'action android-actions/setup-android@v3 tente de
       # retélécharger une version obsolete des cmdline-tools (HTTP 404).
-      # On utilise donc le sdkmanager preinstalle pour accepter les licences
-      # et s'assurer que la plateforme compileSdk=35 est presente.
+      # On utilise donc le sdkmanager preinstalle (chemin complet, il n'est
+      # pas dans le PATH) pour accepter les licences et s'assurer que la
+      # plateforme compileSdk=35 est presente.
       - name: Setup Android SDK (preinstalled)
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKM="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+          "$SDKM" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
