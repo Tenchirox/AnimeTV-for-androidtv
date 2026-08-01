@@ -1941,7 +1941,7 @@ var ninenime={
           if (d.url && d.url.indexOf('http')!=0){
             d.url='https://'+ninenime.DOMAIN+d.url;
           }
-          d.tip=poster.getAttribute('data-tip')||d.url.split('/').pop();
+          d.tip=d.url.split('/').pop();
           var img=t.querySelector('.ani.poster img');
           d.poster=img?img.getAttribute('src'):'';
           var name=t.querySelector('.info .name');
@@ -1976,7 +1976,7 @@ var ninenime={
     var o={ genres:[] };
     try{
       var t=h.querySelector('h1.title');
-      o.title=(t.textContent+'').trim();
+      o.title=t?(t.textContent+'').trim():'';
       try{ o.title_jp=t.getAttribute('data-jp'); }catch(e){}
       var nm=h.querySelector('.info .names');
       if (nm && !o.title_jp) o.title_jp=(nm.textContent+'').trim();
@@ -2161,6 +2161,8 @@ var ninenime={
 
     var base=dt.url;
     if (base.indexOf('http')!=0){ base='https://'+ninenime.DOMAIN+'/watch/'+base; }
+    /* retire un eventuel suffixe /ep-N deja present (evite /ep-N/ep-N) */
+    base=base.replace(/\/ep-\d+\/?$/,'');
     var epPage=base+'/ep-'+oe.ep;
     $ap(epPage,function(r){
       if (!r.ok){ f(null); return; }
@@ -22559,7 +22561,7 @@ query ($weekStart: Int, $weekEnd: Int, $page: Int, $perPage: Int) {
         epsel=_MAL.pop.var.ep;
       }
 
-      openurl+=(__SDKAI||__SD3||__SD5||__SD6||__SD7||__SD8||__SD10)?('#'+epsel):('/ep-'+epsel);
+      openurl+=(__SDKAI||__SD3||__SD5||__SD6||__SD7||__SD8||__SD10||__SD11)?('#'+epsel):('/ep-'+epsel);
 
       console.log("MAL Open Anime = "+openurl);
       _MAL.popup_close();
